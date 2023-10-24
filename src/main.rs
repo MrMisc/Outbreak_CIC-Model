@@ -156,9 +156,9 @@ impl Segment_3D{
         //     capacity: self.capacity-nig,
         //     eviscerated: self.eviscerated,
         // };        
-        if !infected{hosts.push(host::new(self.zone,CONTACT_TRANSMISSION_PROBABILITY,self.origin_x as f64,self.origin_y as f64,self.origin_z as f64,RESTRICTION,self.range_x,self.range_y,self.range_z));}
+        if !infected{hosts.push(host::new(self.zone,CONTACT_TRANSMISSION_PROBABILITY[self.zone],self.origin_x as f64,self.origin_y as f64,self.origin_z as f64,RESTRICTION,self.range_x,self.range_y,self.range_z));}
         else{
-            let mut host_to_add:host = host::new_inf(self.zone,CONTACT_TRANSMISSION_PROBABILITY,self.origin_x as f64,self.origin_y as f64,self.origin_z as f64,RESTRICTION,self.range_x,self.range_y,self.range_z);
+            let mut host_to_add:host = host::new_inf(self.zone,CONTACT_TRANSMISSION_PROBABILITY[self.zone],self.origin_x as f64,self.origin_y as f64,self.origin_z as f64,RESTRICTION,self.range_x,self.range_y,self.range_z);
             host_to_add.colonized = colonized;
             hosts.push(host_to_add);
         }
@@ -244,41 +244,7 @@ impl Zone_3D{
         }
         vec
     }
-    // fn eviscerate(&mut self,eviscerators:&mut Vec<Eviscerator>, vector:&mut Vec<host>,time:usize){
-    //     //Filter out eviscerators that are for the zone in particular
-    //     let mut evs: Vec<&mut Eviscerator> = eviscerators.iter_mut().filter(|ev| ev.zone == self.zone).collect();
-    //     // Define the step size for comparison
-    //     let step_size = evs.len();
 
-    //     // Iterate over the smaller vector and compare with elements in the larger vector at regular intervals
-    //     for (i, eviscerator) in evs.iter_mut().enumerate() {
-    //         let start_index = i; // Start index in the larger vector for this eviscerator
-    //         for (j, host) in vector.iter_mut().skip(start_index).step_by(step_size).enumerate() {
-    //             // Compare and update the elements in the larger vector
-    //             // if eviscerator.values_are_greater(larger_value) {
-    //             //     *larger_value = eviscerator.values.clone(); // Assuming your struct has a clone method
-    //             if host.infected && host.zone == eviscerator.zone{
-    //                 eviscerator.infected = true;
-    //                 // println!("EVISCERATOR HAS BEEN INFECTED AT TIME {} of this host stock entering zone!",host.time);
-    //                 eviscerator.number_of_times_infected = 0;
-    //                 println!("{} {} {} {} {} {}",host.x,host.y,host.z,12,time,host.zone);
-    //             }else if eviscerator.infected && host.zone == eviscerator.zone{
-    //                 // println!("Confirming that an eviscerator is infected in zone {}",eviscerator.zone);
-    //                 host.infected = host.transfer(limits::max(0.0,1.0-(eviscerator.number_of_times_infected as f64)*EVISCERATOR_TO_HOST_PROBABILITY_DECAY));
-    //                 eviscerator.number_of_times_infected += 1;
-    //                 if host.infected{
-    //                     println!("{} {} {} {} {} {}",host.x,host.y,host.z,11,time,host.zone);
-    //                     // panic!("Evisceration has infected a host!!!");
-    //                 }
-    //             }
-    //             //Decay of infection
-    //             if eviscerator.number_of_times_infected>=EVISCERATE_DECAY{
-    //                 eviscerator.infected = false;
-    //             }
-    //         }
-    //     }
-        
-    // }
     fn modify(&mut self, start:[u64;3], end:[u64;3], range:[usize;3]){//range is synonymous with the stepsize in side STEP -> we are modifying the step here ---> hetero dims will not be reflected visually
         self.segments.retain(|segment| start.iter().zip([segment.origin_x,segment.origin_y,segment.origin_z].iter()).all(|(|&a,&b)| a<=b)==false && end.iter().zip([segment.origin_x,segment.origin_y,segment.origin_z].iter()).all(|(|&a,&b)| a>=b) == false);
 
@@ -408,8 +374,8 @@ const EGGTOFAECES_CONTACT_SPREAD:bool = true;
 const FAECESTOEGG_CONTACT_SPREAD:bool = true;
 // const INITIAL_COLONIZATION_RATE:f64 = 0.47; //Probability of infection, resulting in colonization -> DAILY RATE ie PER DAY
 //Space
-const LISTOFPROBABILITIES:[f64;3] = [0.1,0.1,0.1]; //Probability of transfer of samonella per zone - starting from zone 0 onwards
-const CONTACT_TRANSMISSION_PROBABILITY:f64 = 0.2;
+const LISTOFPROBABILITIES:[f64;3] = [0.1,0.1,0.1]; //Probability of transfer of disease per zone - starting from zone 0 onwards
+const CONTACT_TRANSMISSION_PROBABILITY:[f64;3] = [0.2,0.2,0.2];
 const GRIDSIZE:[[f64;3];3] = [[960.0,4.0,4.0],[960.0,4.0,4.0],[960.0,4.0,4.0]];
 const MAX_MOVE:f64 = 1.0;
 const MEAN_MOVE:f64 = 0.5;
@@ -420,9 +386,10 @@ const STD_MOVE_Z:f64 = 4.0;
 const NO_OF_HOSTS_PER_SEGMENT:[u64;3] = [2,4,4];
 //Anchor points
 //Vertical perches
-const PERCH:bool = false;
+const PERCH:bool = true;
+const PERCH_ZONES:[usize;1]= [1];
 const PERCH_HEIGHT:f64 = 2.0; //Number to be smaller than segment range z -> Denotes frequency of heights at which hens can perch
-const PERCH_FREQ:f64 = 0.15; //probability that hosts go to perch
+const PERCH_FREQ:f64 = 0.5; //probability that hosts go to perch
 const DEPERCH_FREQ:f64 = 0.4; //probability that a host when already on perch, decides to go down from perch
 //Nesting areas
 const NEST:bool = false;
@@ -626,6 +593,7 @@ impl host{
                         // println!("Moved to zone {}",x.zone);
                         x.time = 0.0;
                         x.prob1 = LISTOFPROBABILITIES[x.zone];
+                        x.prob2 = CONTACT_TRANSMISSION_PROBABILITY[x.zone];
                         // println!("Going to deduct capacity @  zone {} with a capacity of {}", zone,zone_toedit.clone().zone);
                         // println!("Apparently think that zone {} has {} space left",zone,space[zone].capacity);
                         // println!("Capacity for zone {} is now:{} - pre addition",zone,space[zone].capacity);
@@ -665,10 +633,10 @@ impl host{
                     let rollnumber: f64 = rng.sample(roll);
                     let [condition,x,y,z,range_x,range_y,range_z] = space[0].add(); 
                     if rollnumber<PROBABILITY_OF_INFECTION && condition != 0{
-                        vector.push(host::new_inf(0,CONTACT_TRANSMISSION_PROBABILITY,x as f64,y as f64,z as f64,RESTRICTION,range_x,range_y,range_z));
+                        vector.push(host::new_inf(0,CONTACT_TRANSMISSION_PROBABILITY[zone],x as f64,y as f64,z as f64,RESTRICTION,range_x,range_y,range_z));
                     }
                     else if condition != 0{
-                        vector.push(host::new(0,CONTACT_TRANSMISSION_PROBABILITY,x as f64,y as f64,z as f64,RESTRICTION,range_x,range_y,range_z));
+                        vector.push(host::new(0,CONTACT_TRANSMISSION_PROBABILITY[zone],x as f64,y as f64,z as f64,RESTRICTION,range_x,range_y,range_z));
                     }
             }
         }
@@ -842,10 +810,10 @@ impl host{
                 }
                 if FLY{
                     new_z = limits::min(limits::max(self.origin_z as f64,self.z+mult[2]*normal(MEAN_MOVE_Z,STD_MOVE_Z,MAX_MOVE_Z)),self.origin_z as f64+self.range_z as f64);
-                }else if PERCH && roll(PERCH_FREQ){ //no need perching concept for flying creatures
+                }else if PERCH && PERCH_ZONES.contains(&self.zone) && roll(PERCH_FREQ){ //no need perching concept for flying creatures
                     new_z = limits::min(self.z+PERCH_HEIGHT, self.origin_z as f64+self.range_z as f64);
                     self.perched = true;
-                }else if PERCH && roll(DEPERCH_FREQ){
+                }else if PERCH && PERCH_ZONES.contains(&self.zone) && self.perched && roll(DEPERCH_FREQ){
                     new_z = self.origin_z as f64;
                     self.perched = false;
                 }
@@ -865,10 +833,10 @@ impl host{
                 }
                 if FLY{
                     new_z = limits::min(limits::max(0.0,self.z+mult[2]*normal(MEAN_MOVE_Z,STD_MOVE_Z,MAX_MOVE_Z)),GRIDSIZE[self.zone as usize][2]);
-                }else if PERCH && roll(PERCH_FREQ){ //no need perching concept for flying creatures
+                }else if PERCH && PERCH_ZONES.contains(&self.zone) && roll(PERCH_FREQ){ //no need perching concept for flying creatures
                     new_z = limits::min(self.z+PERCH_HEIGHT, self.origin_z as f64+self.range_z as f64);
                     self.perched = true;
-                }else if PERCH && roll(DEPERCH_FREQ){
+                }else if PERCH && PERCH_ZONES.contains(&self.zone) && self.perched && roll(DEPERCH_FREQ){
                     new_z = self.origin_z as f64;
                     self.perched = false;
                 }
@@ -1203,7 +1171,7 @@ impl host{
             let mean_y:f64 = ((x.range_y as f64)/2.0) as f64;
             let std_y:f64 = ((x.range_y as f64)/SPORADICITY) as f64;
             let max_y:f64 = x.range_y as f64;            
-            for _ in 0..x.capacity.clone() as usize{hosts.push(host::new(zone_no,CONTACT_TRANSMISSION_PROBABILITY,x.origin_x as f64 + normal(mean_x,std_x,max_x),(x.origin_y as f64 +normal(mean_y,std_y,max_y)) as f64,x.origin_z as f64,RESTRICTION,x.range_x,x.range_y,x.range_z));}
+            for _ in 0..x.capacity.clone() as usize{hosts.push(host::new(zone_no,CONTACT_TRANSMISSION_PROBABILITY[zone_no],x.origin_x as f64 + normal(mean_x,std_x,max_x),(x.origin_y as f64 +normal(mean_y,std_y,max_y)) as f64,x.origin_z as f64,RESTRICTION,x.range_x,x.range_y,x.range_z));}
             x.capacity = 0;
             zone.capacity = 0;
         });
@@ -1464,7 +1432,8 @@ fn main(){
     // Space
     writeln!(file, "## Space").expect("Failed to write to file");
     writeln!(file, "- RESTRICTION: {} (Are the hosts restricted to segments within each zone)", RESTRICTION).expect("Failed to write to file");
-    writeln!(file, "- LISTOFPROBABILITIES: {:?} (Probability of transfer of salmonella per zone)", LISTOFPROBABILITIES).expect("Failed to write to file");
+    writeln!(file, "- INFECTION PROBABILITIES PER ZONE: {:?} (Probability of transfer of salmonella per zone)", LISTOFPROBABILITIES).expect("Failed to write to file");
+    writeln!(file, "- CONTACT TRANSMISSION PROBABILITIES PER ZONE: {:?} (Probability of transfer of salmonella per zone)", CONTACT_TRANSMISSION_PROBABILITY).expect("Failed to write to file");
     writeln!(file, "- GRIDSIZE: {:?} (Size of the grid)", GRIDSIZE).expect("Failed to write to file");
     writeln!(file, "- MAX_MOVE: {} (Maximum move value)", MAX_MOVE).expect("Failed to write to file");
     writeln!(file, "- MEAN_MOVE: {} (Mean move value)", MEAN_MOVE).expect("Failed to write to file");
@@ -1478,7 +1447,18 @@ fn main(){
     // Fly configuration
     writeln!(file, "\n## Flight module").expect("Failed to write to file");
     writeln!(file, "- FLY: {} (Flight module enabled/disabled)", FLY).expect("Failed to write to file");    
-    writeln!(file, "- FLY_FREQ: {} (Frequency of flight - which HOUR STEP do the hosts land, if at all)", FLY_FREQ).expect("Failed to write to file");    
+    if FLY{writeln!(file, "- FLY_FREQ: {} (Frequency of flight - which HOUR STEP do the hosts land, if at all)", FLY_FREQ).expect("Failed to write to file");    }
+
+    //Perching configuration
+    writeln!(file, "\n## Perching module").expect("Failed to write to file");
+    writeln!(file, "- PERCH: {} (Do the hosts perch?)", PERCH).expect("Failed to write to file");    
+    if PERCH{
+        writeln!(file, "- PERCH_HEIGHT: {} (Periodic height at which hosts are able to perch to)", PERCH_HEIGHT).expect("Failed to write to file");
+        writeln!(file, "- PERCH_FREQ: {} (Frequency/Probability of perching)", PERCH_FREQ).expect("Failed to write to file");
+        writeln!(file, "- DEPERCH_FREQ: {} (Frequency/Probability of ceasing perching)", DEPERCH_FREQ).expect("Failed to write to file");
+        writeln!(file, "- PERCH_ZONES: {:?} (Zones in which perching occurs)", PERCH_ZONES).expect("Failed to write to file");
+    }
+
 
     // Eviscerator configuration
     writeln!(file, "\n## Eviscerator Configuration enabled:{}",EVISCERATE).expect("Failed to write to file");
@@ -1516,5 +1496,13 @@ fn main(){
     writeln!(file, "\n## Generation").expect("Failed to write to file");
     writeln!(file, "- SPORADICITY: {} ( Bigger number makes the spread of hosts starting point more even per seg)", SPORADICITY).expect("Failed to write to file");
 
+    //Contamination Pathway Toolbox options
+    writeln!(file, "\n##Contamination Pathway Toolbox options").expect("Failed to write to file");
+    writeln!(file, "HOSTTOHOST_CONTACT_SPREAD: {} ( Whether contamination can spread from mobile host to mobile host)", HOSTTOHOST_CONTACT_SPREAD).expect("Failed to write to file");
+    writeln!(file, "HOSTTOEGG_CONTACT_SPREAD: {} ( Whether contamination can spread from mobile host to edible/consumable deposit from host)", HOSTTOEGG_CONTACT_SPREAD).expect("Failed to write to file");
+    writeln!(file, "HOSTTOFAECES_CONTACT_SPREAD: {} ( Whether contamination can spread from mobile host to inedible/non-consumable deposit from host - i.e. faecal matter)", HOSTTOFAECES_CONTACT_SPREAD).expect("Failed to write to file");
+    writeln!(file, "EGGTOFAECES_CONTACT_SPREAD: {} ( Whether contamination can spread from edible/consumable deposit from host to inedible/non-consumable deposit from host)", EGGTOFAECES_CONTACT_SPREAD).expect("Failed to write to file");
+    writeln!(file, "FAECESTOEGG_CONTACT_SPREAD: {} ( Whether contamination can spread from inedible/non-consumable deposit from host to edible/consumable deposit from host)", FAECESTOEGG_CONTACT_SPREAD).expect("Failed to write to file");
+    writeln!(file, "FAECESTOHOST_CONTACT_SPREAD: {} ( Whether contamination can spread from inedible/non-consumable deposit from host to mobile host)", FAECESTOHOST_CONTACT_SPREAD).expect("Failed to write to file");
 
 }
