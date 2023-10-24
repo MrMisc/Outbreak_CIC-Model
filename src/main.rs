@@ -1051,7 +1051,7 @@ impl host{
                                     x.x,
                                     x.y,
                                     x.z,
-                                    diagnostic*(((x.motile+1) as i8) * ((inf.motile+1) as i8) + 10), 
+                                    diagnostic*(((x.motile+1) as i8) * ((inf.motile+1) as i8) + 100), 
                                     time,
                                     x.zone
                                 );
@@ -1155,11 +1155,15 @@ impl host{
 
         [inf/(noofhosts+1.0),inf2/(noofhosts2+1.0),noofhosts,noofhosts2]
     }
-    fn zone_report(inventory:&Vec<host>,zone:usize)->[f64;7]{ //simple function to quickly return the percentage of infected hosts
+    fn zone_report(inventory:&Vec<host>,zone:usize)->[f64;8]{ //simple function to quickly return the percentage of infected hosts
         //Filter for zone
         let mut inventory:Vec<host> = inventory.clone().into_iter().filter(|x|{
             x.zone == zone
         }).collect::<Vec<_>>();
+        //Mobile hosts contaminated calculation
+        let inf_cont: f64 = inventory.clone().into_iter().filter(|x| {
+            x.contaminated && x.motile==0
+        }).collect::<Vec<_>>().len() as f64;
         //Mobile hosts infected calculation
         let inf: f64 = inventory.clone().into_iter().filter(|x| {
             x.infected && x.motile==0
@@ -1188,7 +1192,7 @@ impl host{
             x.motile==2
         }).collect::<Vec<_>>().len() as f64;              
 
-        [inf/(noofhosts+1.0),inf2/(noofhosts2+1.0),noofhosts,noofhosts2,inf3/(noofhosts+1.0), inf4/(noofhosts4+1.0),noofhosts4]
+        [inf_cont/(noofhosts+1.0),inf/(noofhosts+1.0),inf2/(noofhosts2+1.0),noofhosts,noofhosts2,inf3/(noofhosts+1.0), inf4/(noofhosts4+1.0),noofhosts4]
     }    
     fn generate_in_grid(zone:&mut Zone_3D,hosts:&mut Vec<host>){  //Fill up each segment completely to full capacity in a zone with hosts. Also update the capacity to reflect that there is no more space
         let zone_no:usize = zone.clone().zone;
@@ -1211,6 +1215,7 @@ fn main(){
     let mut hosts: Vec<host> = Vec::new();
     let mut faecal_inventory: Vec<host> = Vec::new();
     // let mut feast: Vec<host> =  Vec::new();
+    let mut contaminants:u64 = 0;
     let mut hosts_in_collection:[u64;2] = [0,1];
     let mut colonials_in_collection:[u64;2] = [0,1];
     let mut deposits_in_collection:[u64;2] = [0,1];
@@ -1338,6 +1343,7 @@ fn main(){
         // println!("Number of infected eggs in soon to be collection is {}",collect.clone().into_iter().filter(|x| x.motile == 1 && x.infected).collect::<Vec<_>>().len() as f64);
         // feast.append(&mut collect);
         //Update Collection numbers
+        let no_of_contaminated_hosts: u64 = collect.clone().into_par_iter().filter(|x| x.motile == 0 && x.contaminated).collect::<Vec<_>>().len() as u64;
         let no_of_infected_hosts: u64 = collect.clone().into_par_iter().filter(|x| x.motile == 0 && x.infected).collect::<Vec<_>>().len() as u64;
         let no_of_colonized_hosts:u64 = collect.clone().into_par_iter().filter(|x| x.motile == 0 && x.colonized).collect::<Vec<_>>().len() as u64;
         let no_of_hosts: u64 = collect.clone().into_par_iter().filter(|x| x.motile == 0).collect::<Vec<_>>().len() as u64;
@@ -1346,6 +1352,7 @@ fn main(){
         let no_of_faeces: u64 = faecal_inventory.clone().into_par_iter().filter(|x| x.motile == 2).collect::<Vec<_>>().len() as u64;
         let no_of_infected_faeces:u64 = faecal_inventory.clone().into_par_iter().filter(|x| x.motile == 2 && x.infected).collect::<Vec<_>>().len() as u64;
 
+        contaminants += no_of_contaminated_hosts;
         hosts_in_collection[0] += no_of_infected_hosts;
         colonials_in_collection[0] += no_of_colonized_hosts;
         hosts_in_collection[1] += no_of_hosts;
@@ -1371,7 +1378,9 @@ fn main(){
         let collection_zone_no:u8 = no_of_zones as u8+1;
         //Call once
         for iter in 0..no_of_zones{
-            let [mut perc,mut perc2,mut total_hosts,mut total_hosts2,mut perc3,mut perc4,mut total_hosts4] = host::zone_report(&hosts,iter);            
+            let [mut perc_cont,mut perc,mut perc2,mut total_hosts,mut total_hosts2,mut perc3,mut perc4,mut total_hosts4] = host::zone_report(&hosts,iter);            
+            let no_cont = perc_cont.clone()*total_hosts;
+            perc_cont*=100.0;
             let no = perc.clone()*total_hosts;
             perc = perc*100.0;
             let no2 = perc2.clone()*total_hosts2;        
@@ -1381,6 +1390,9 @@ fn main(){
             let no4 = perc4.clone()*total_hosts4;
             perc4 = perc4*100.0;            
             wtr.write_record(&[
+                perc_cont.to_string(),
+                total_hosts.to_string(),
+                no_cont.to_string(),
                 perc.to_string(),
                 total_hosts.to_string(),
                 no.to_string(),
@@ -1400,6 +1412,7 @@ fn main(){
         // let [mut _perc,mut _perc2,mut _total_hosts,mut _total_hosts2] = host::report(&feast);
         let _no = hosts_in_collection[0];
         let _perc = (hosts_in_collection[0] as f64)/(hosts_in_collection[1] as f64) * 100.0;
+        let _perc_cont = (contaminants as f64)/(hosts_in_collection[1] as f64) * 100.0;
         let _no2 = deposits_in_collection[0];
         let _perc2 = (deposits_in_collection[0] as f64)/(deposits_in_collection[1] as f64)*100.0;
         let _total_hosts = hosts_in_collection[1];
@@ -1412,15 +1425,18 @@ fn main(){
         // println!("{} {} {} {} {} {}",perc,total_hosts,no,perc2,total_hosts2,no2);    
         // println!("{} {} {} {} {} {} {} {} {} {} {} {}",perc,total_hosts,no,perc2,total_hosts2,no2,_perc,_total_hosts,_no,_perc2,_total_hosts2,_no2);
         wtr.write_record(&[
+            _perc_cont.to_string(),
+            _total_hosts.to_string(),
+            contaminants.to_string(),
             _perc.to_string(),
             _total_hosts.to_string(),
             _no.to_string(),
-            _perc2.to_string(),
+            _perc2.to_string(), //Eggs
             _total_hosts2.to_string(),
             _no2.to_string(),
-            _perc3.to_string(),            
+            _perc3.to_string(),            //Colonized Hosts
             _no3.to_string(),
-            _perc4.to_string(),
+            _perc4.to_string(), //faeces
             _total_faeces.to_string(),
             _no4.to_string(),
             "Collection Zone".to_string(),
