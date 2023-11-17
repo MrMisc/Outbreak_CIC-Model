@@ -328,7 +328,7 @@ htmlwidgets::saveWidget(as_widget(fig), "animation__byzones.html", selfcontained
 #   group_by(interaction, time) %>%
 #   summarise(count = n()) %>%
 thematic::thematic_on(bg = "#fff6eb", fg = "#005B4B", accent = "#005B4B", font = "Yu Gothic")
-data_ <- data_ %>% 
+data <- data %>% 
     mutate(interaction = case_when(
       interaction == 1000 ~ "marker",
         interaction == 0 ~ "Host 0[*]",
