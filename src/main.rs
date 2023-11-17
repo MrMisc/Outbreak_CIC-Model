@@ -343,12 +343,12 @@ pub struct host{
 }
 //Note that if you want to adjust the number of zones, you have to, in addition to adjusting the individual values to your liking per zone, also need to change the slice types below!
 //Resolution
-const STEP:[[usize;3];3] = [[4,4,4],[4,4,4],[4,4,4]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
+const STEP:[[usize;3];3] = [[1000,1000,20],[20,10,10],[4,4,4]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
 const HOUR_STEP: f64 = 4.0; //Number of times hosts move per hour
-const LENGTH: usize =3*24; //How long do you want the simulation to be?
+const LENGTH: usize =48; //How long do you want the simulation to be?
 //Infection/Colonization module
 // ------------Do only colonized hosts spread disease or do infected hosts spread
-const HOST_0:f64 = 3.0;
+const HOST_0:f64 = 15.0;
 const COLONIZATION_SPREAD_MODEL:bool = true;
 const TIME_OR_CONTACT:bool = true; //true for time -> contact uses number of times infected to determine colonization
 const IMMORTAL_CONTAMINATION:bool = false;
@@ -366,27 +366,27 @@ const RECOVERY_RATE:[f64;2] = [0.002,0.008]; //Lower and upper range that increa
 const NO_TO_COLONIZE:u32 = 100;
 //Contamination rules | Different from infections, which are taken to only be transmittable via feeding of infected faeces 
 const HOSTTOHOST_CONTACT_SPREAD:bool = true; // Host -> Host, Host -> Faeces and Host -> Eggs via spatial proximity
-const HOSTTOEGG_CONTACT_SPREAD:bool = false;
+const HOSTTOEGG_CONTACT_SPREAD:bool = true;
 const HOSTTOFAECES_CONTACT_SPREAD:bool = false;
-const EGGTOHOST_CONTACT_SPREAD:bool = false;
+const EGGTOHOST_CONTACT_SPREAD:bool = true;
 const FAECESTOHOST_CONTACT_SPREAD:bool = true;
 const EGGTOFAECES_CONTACT_SPREAD:bool = true;
 const FAECESTOEGG_CONTACT_SPREAD:bool = true;
 // const INITIAL_COLONIZATION_RATE:f64 = 0.47; //Probability of infection, resulting in colonization -> DAILY RATE ie PER DAY
 //Space
-const LISTOFPROBABILITIES:[f64;3] = [0.1,0.1,0.1]; //Probability of transfer of disease per zone - starting from zone 0 onwards
-const CONTACT_TRANSMISSION_PROBABILITY:[f64;3] = [0.2,0.2,0.2];
-const GRIDSIZE:[[f64;3];3] = [[960.0,4.0,4.0],[960.0,4.0,4.0],[960.0,4.0,4.0]];
-const MAX_MOVE:f64 = 1.0;
-const MEAN_MOVE:f64 = 0.5;
-const STD_MOVE:f64 = 1.0; // separate movements for Z config
+const LISTOFPROBABILITIES:[f64;3] = [0.8,0.8,0.8]; //Probability of transfer of disease per zone - starting from zone 0 onwards
+const CONTACT_TRANSMISSION_PROBABILITY:[f64;3] = [0.5,0.5,0.5];
+const GRIDSIZE:[[f64;3];3] = [[1000.0,1000.0,20.0],[100.0,1000.0,10.0],[500.0,500.0,4.0]];
+const MAX_MOVE:f64 = 10.0;
+const MEAN_MOVE:f64 = 4.0;
+const STD_MOVE:f64 = 3.0; // separate movements for Z config
 const MAX_MOVE_Z:f64 = 1.0;
 const MEAN_MOVE_Z:f64 = 2.0;
 const STD_MOVE_Z:f64 = 4.0;
-const NO_OF_HOSTS_PER_SEGMENT:[u64;3] = [2,4,4];
+const NO_OF_HOSTS_PER_SEGMENT:[u64;3] = [5000,4,4];
 //Anchor points
 //Vertical perches
-const PERCH:bool = true;
+const PERCH:bool = false;
 const PERCH_ZONES:[usize;1]= [1];
 const PERCH_HEIGHT:f64 = 2.0; //Number to be smaller than segment range z -> Denotes frequency of heights at which hens can perch
 const PERCH_FREQ:f64 = 0.5; //probability that hosts go to perch
@@ -420,7 +420,7 @@ const DEPOSIT_RATE_INFECTION_MULTIPLIER:f64 = 2.0/3.0;
 const FEED_1:bool = false; //Do the hosts get fed - omnipotent method
 const FEED_2:bool = true;//Do the hosts get fed - with standalone feeders ->crowding implication
 const FEED_INFECTION_RATE:f64 = 0.003; //Probability of feed being infected
-const FEED_ZONES:[usize;1] = [1]; //To set the zones that have feed provided to them.
+const FEED_ZONES:[usize;2] = [0,1]; //To set the zones that have feed provided to them.
 const FEED_TIMES: [usize;2] = [11,14]; //24h format, when hosts get fed: Does not have to be only 2 - has no link to number of zones or anything like that
 const FEEDER_SPACING:f64 = 2.5;
 const FEED_DURATION:f64 = 0.5;
@@ -439,7 +439,7 @@ const MISHAP:bool = false;
 const MISHAP_PROBABILITY:f64 = 0.01;
 const MISHAP_RADIUS:f64 = 9.0; //Must be larger than the range_x of the eviscerate boxes for there to be any change in operation
 //Transfer parameters
-const ages:[f64;3] = [24.0,24.0,12.0]; //Time hosts are expected spend in each region minimally
+const ages:[f64;3] = [15.0,15.0,15.0]; //Time hosts are expected spend in each region minimally
 //Collection
 const AGE_OF_HOSTCOLLECTION: f64 = 20.0*24.0;  //For instance if you were collecting hosts every 15 days
 const COLLECT_DEPOSITS: bool = true;
@@ -775,7 +775,7 @@ impl host{
         }else if COLONIZATION_SPREAD_MODEL && !TIME_OR_CONTACT && self.number_of_times_infected>NO_TO_COLONIZE && self.infected && self.motile == 0{
             self.colonized = true;
         }
-        if self.motile==0 && EVISCERATE_ZONES.contains(&self.zone) == false{ // NOT IN EVISCERATION
+        if self.motile==0 && !EVISCERATE && EVISCERATE_ZONES.contains(&self.zone) == false{ // NOT IN EVISCERATION
             //Whether the movement is negative or positive
             let mut mult:[f64;3] = [0.0,0.0,0.0];
             for index in 0..mult.len(){
@@ -842,7 +842,7 @@ impl host{
                 }
             }            
             host{contaminated:self.contaminated,infected:self.infected,number_of_times_infected:0,time_infected:self.time_infected,generation_time:self.generation_time,colonized:self.colonized,motile:self.motile,zone:self.zone,prob1:self.prob1,prob2:self.prob2,x:new_x,y:new_y,z:self.z,perched:self.perched,eating:eating,eat_x:self.eat_x,eat_y:self.eat_y,eating_time:eating_time,age:self.age+1.0/HOUR_STEP,time:self.time+1.0/HOUR_STEP,origin_x:self.origin_x,origin_y:self.origin_y,origin_z:self.origin_z,restrict:self.restrict,range_x:self.range_x,range_y:self.range_y,range_z:self.range_z}
-        }else if self.motile==0 && EVISCERATE_ZONES.contains(&self.zone){
+        }else if self.motile==0 && EVISCERATE && EVISCERATE_ZONES.contains(&self.zone) {
             // println!("Evisceration pending...");
             // self.motile == 1; //It should be presumably electrocuted and hung on a conveyer belt
             self.x = ((self.origin_x as f64) + (self.range_x as f64))/2.0; // square in middle
