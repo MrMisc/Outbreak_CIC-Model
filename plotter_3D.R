@@ -20,7 +20,8 @@ print(getwd())
 library(ggplot2)
 library(pandoc)
 library(plotly)
-
+library(echarts4r)
+library(echarts4r.assets)
 library("ggplot2")
 library("plotly")
 library("breakDown")
@@ -246,9 +247,21 @@ for (separate_zone in zone_unique2){
   )
 
   htmlwidgets::saveWidget(as_widget(fig), paste("animation",separate_zone,".html",sep = "_"), selfcontained = TRUE)
-
-
-
+  rm(fig)
+  df<-data_
+  df$label<-df$interaction
+  # df$Time<-df$time
+  fig<-df |> group_by(interaction) |> e_charts(x) |> 
+    e_scatter_3d(y,z,time,label,scale = e_scale)|>
+    e_tooltip() |>
+    e_visual_map(time,inRange = list(symbolSize = c(10, 40)),dimension = 3,bottom = 300) |>
+    e_x_axis_3d(min = 0,max = x_large[count],interval = step_x[count])|>
+    e_y_axis_3d(min = 0,max = y_large[count],interval = step_y[count])|>
+    e_z_axis_3d(min = 0,max = z_large[count],interval = step_z[count])|>
+    e_legend(show = TRUE, type = "scroll") |>
+    e_title("Infection Plot", "CIC Model | by Irshad Ul Ala")|>
+    e_theme_custom("MyEChartsTheme.json")
+  htmlwidgets::saveWidget(fig, paste("Eanimation",separate_zone,".html",sep = "_"), selfcontained = TRUE)
 
   #Time series plot animation
   rm(fig)
@@ -328,7 +341,8 @@ htmlwidgets::saveWidget(as_widget(fig), "animation__byzones.html", selfcontained
 #   group_by(interaction, time) %>%
 #   summarise(count = n()) %>%
 thematic::thematic_on(bg = "#fff6eb", fg = "#005B4B", accent = "#005B4B", font = "Yu Gothic")
-data <- data %>% 
+print(unique(data$interaction))
+data <- data%>% 
     mutate(interaction = case_when(
       interaction == 1000 ~ "marker",
         interaction == 0 ~ "Host 0[*]",
@@ -358,7 +372,8 @@ data <- data %>%
         TRUE ~ as.character(interaction)
     ))
 
-
+print("Names in data are")
+print(unique(data$interaction))
 
 fig <- ggplot(data, aes(x = time, fill = as.factor(interaction))) +
   geom_bar(position = "dodge") + facet_wrap(.~zone)+
