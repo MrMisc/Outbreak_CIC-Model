@@ -227,6 +227,7 @@ for (separate_zone in zone_unique2){
   # fig <- fig %>% add_markers()
   #Factor
   f<-max(x_large[count],y_large[count],z_large[count])/200
+  f_<-0.5*f
   print("Using x coord as follows")
   print("Max x")
   print(x_large[count])
@@ -252,15 +253,16 @@ for (separate_zone in zone_unique2){
   df$label<-df$interaction
   # df$Time<-df$time
   fig<-df |> group_by(interaction) |> e_charts(x) |> 
-    e_scatter_3d(y,z,time,label,scale = e_scale)|>
+    e_scatter_3d(y,z,time,label)|>
     e_tooltip() |>
-    e_visual_map(time,inRange = list(symbolSize = c(10, 40)),dimension = 3,bottom = 300) |>
+    e_visual_map(time,inRange = list(symbolSize = c(35,13)),dimension = 3) |>
     e_x_axis_3d(min = 0,max = x_large[count],interval = step_x[count])|>
     e_y_axis_3d(min = 0,max = y_large[count],interval = step_y[count])|>
-    e_z_axis_3d(min = 0,max = z_large[count],interval = step_z[count])|>
-    e_legend(show = TRUE, type = "scroll") |>
-    e_title("Infection Plot", "CIC Model | by Irshad Ul Ala")|>
-    e_theme_custom("MyEChartsTheme.json")
+    e_z_axis_3d(min = 0,max = z_large[count],interval = step_z[count], name = "Z / Altitude")|>
+    e_grid_3d(boxWidth = x_large[count]/f_,boxHeight = z_large[count]/f_,boxDepth = y_large[count]/f_)|>
+    e_legend(show = TRUE) |>
+    e_title(paste("Infection Plot | Zone",separate_zone,sep = " "), "CIC Model | by Irshad Ul Ala")|>
+    e_theme_custom("MyEChartsTheme2.json")
   htmlwidgets::saveWidget(fig, paste("Eanimation",separate_zone,".html",sep = "_"), selfcontained = TRUE)
 
   #Time series plot animation
@@ -383,11 +385,15 @@ fig <- ggplotly(fig, dynamicTicks = TRUE)
 
 htmlwidgets::saveWidget(fig, "Histogram.html", selfcontained = TRUE)
 
-  S <- data %>%
-    group_by(interaction,zone,time) %>%
-    summarise(count = n()) %>%
-    ungroup()
+S <- data %>%
+  group_by(interaction,zone,time) %>%
+  summarise(count = n()) %>%
+  ungroup()
 
+S_ <- data %>%
+  group_by(interaction,time) %>%
+  summarise(count = n()) %>%
+  ungroup()
 
 fig <- ggplot(S, aes(y = count,x = time, color = as.factor(interaction))) +
   geom_line() + facet_wrap(.~zone) +
@@ -397,8 +403,20 @@ fig <- ggplotly(fig, dynamicTicks = TRUE)
 
 htmlwidgets::saveWidget(fig, "Line.html", selfcontained = TRUE)
 
+write.csv(S_,"infections_sample.csv", row.names = FALSE)
 
+rm(fig)
+fig<-S_ |> group_by(interaction) |> e_charts(time) |>
+  e_datazoom(
+    type = "slider",
+    toolbox = FALSE,
+    bottom = -5
+  )|>
+  e_tooltip()|>
+  e_x_axis(time, axisPointer = list(show = TRUE))|>
+  e_area(count, stack = "grp")
 
+htmlwidgets::saveWidget(fig, "EArea.html", selfcontained = TRUE)
 
 
 #library(pandoc)
