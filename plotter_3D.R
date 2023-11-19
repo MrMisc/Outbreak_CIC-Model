@@ -403,7 +403,7 @@ fig <- ggplotly(fig, dynamicTicks = TRUE)
 
 htmlwidgets::saveWidget(fig, "Line.html", selfcontained = TRUE)
 
-write.csv(S_,"infections_sample.csv", row.names = FALSE)
+# write.csv(S_,"infections_sample.csv", row.names = FALSE)
 
 rm(fig)
 fig<-S_ |> group_by(interaction) |> e_charts(time) |>
