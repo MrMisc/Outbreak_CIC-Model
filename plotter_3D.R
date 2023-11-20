@@ -9,6 +9,7 @@ while(length(line<-readLines(f,n=1))>0){
   record<-c(record,line)  
 }
 
+somethingSomethingplotly<-FALSE
 
 numbers<-record[1:length(record)-1]
 numbers_<-c()
@@ -202,60 +203,97 @@ for (separate_zone in zone_unique2){
   print(max(data_$time))
   print("Minimum data time is")
   print(min(data_$time))
-  fig <- plot_ly(data_, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", symbol = ~interaction, text = ~paste(
-                           '<br>Time:', time, 'hours ','<br> Infection Event Type:',interaction),
-                marker = list(
-                  color = ~time,
-                  cmin = min(data_$time),
-                  cmax = max(data_$time),                  
-                  size = transfer_distance*scaling_factor,
-                  opacity = 0.9,
-                  colorscale=list(c(0, 1), c("#C34A36", "#2F4858")),                 
-                  colorbar = list(
-                   title = 'Time',
-                   x = 0,
-                   y = 0.5,
-                   thickness = 5,
-                   dtick = 12,
-                   tick0 = 0
-                 ),
-                  showscale = TRUE
-                ))
+  if (somethingSomethingplotly){
+    fig <- plot_ly(data_, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", symbol = ~interaction, text = ~paste(
+                            '<br>Time:', time, 'hours ','<br> Infection Event Type:',interaction),
+                  marker = list(
+                    color = ~time,
+                    cmin = min(data_$time),
+                    cmax = max(data_$time),                  
+                    size = transfer_distance*scaling_factor,
+                    opacity = 0.9,
+                    colorscale=list(c(0, 1), c("#C34A36", "#2F4858")),                 
+                    colorbar = list(
+                    title = 'Time',
+                    x = 0,
+                    y = 0.5,
+                    thickness = 5,
+                    dtick = 12,
+                    tick0 = 0
+                  ),
+                    showscale = TRUE
+                  ))
+    print("Using x coord as follows")
+    print("Max x")
+    print(x_large[count])
+    print("Out from ")
+    print(x_large)
+    print("Step x")
+    print(step_x[count])
+    print("Out from")
+    print(step_x)
+    fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = step_x[count],range = list(0,x_large[count])),
+                                    yaxis = list(title = 'Y-Axis',dtick = step_y[count],range = list(0,y_large[count])),
+                                    zaxis = list(title = 'Z-Axis',dtick = step_z[count],range = list(0,z_large[count])),
+                                    aspectmode = "manual",aspectratio = list(x = x_large[count]/f,y = y_large[count]/f,z = z_large[count]/f)))
+
+    fig<-fig%>%
+    animation_opts(mode = "next",
+                  easing = "elastic-in", redraw = FALSE
+    )
+
+    htmlwidgets::saveWidget(as_widget(fig), paste("animation",separate_zone,".html",sep = "_"), selfcontained = TRUE)
+    rm(fig)
+
+    fig <- plot_ly(data_, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", frame = ~time, symbol=~interaction,text = ~paste(
+                            '<br>Time:', time, 'hours ','<br> Infection Event Type:',interaction, '<br> Zone: ',zone),
+                  marker = list(
+                    color = "#15798C",
+                    size = transfer_distance*scaling_factor,
+                    opacity = 0.9,
+                    colorscale = 'Inferno'
+                  ))
+
+    # Apply the custom color scale to the plot
+    # fig$x$data[[1]]$marker$colorscale <- custom_color_scale
+    # fig <- fig %>% add_markers()
+    # fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = step_x[separate_zone],range = list(0,x_large[separate_zone])),
+    #                                 yaxis = list(title = 'Y-Axis',dtick = step_y[separate_zone],range = list(0,y_large[separate_zone])),
+    #                                 zaxis = list(title = 'Z-Axis',dtick = step_z[separate_zone],range = list(0,z_large[separate_zone])),
+    #                                 aspectmode = "manual",aspectratio = list(x = x_large[separate_zone],y = y_large[separate_zone],z = z_large[separate_zone])))
+    fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = step_x[count],range = list(0,x_large[count])),
+                                    yaxis = list(title = 'Y-Axis',dtick = step_y[count],range = list(0,y_large[count])),
+                                    zaxis = list(title = 'Z-Axis',dtick = step_z[count],range = list(0,z_large[count])),
+                                    aspectmode = "manual",aspectratio = list(x = x_large[count]/f,y = y_large[count]/f,z = z_large[count]/f)))  
+
+    fig<-fig%>%
+    animation_opts(frame = 300,transition = 150,mode = "next",
+                  easing = "elastic-in", redraw = TRUE
+    )
+
+    htmlwidgets::saveWidget(as_widget(fig), paste("animation",separate_zone,"time_series",".html",sep = "_"), selfcontained = TRUE)  
+
+
+  }
+
 
   # Apply the custom color scale to the plot
   # fig$x$data[[1]]$marker$colorscale <- custom_color_scale
   # fig <- fig %>% add_markers()
   #Factor
   f<-max(x_large[count],y_large[count],z_large[count])/200
-  f_<-0.5*f
-  print("Using x coord as follows")
-  print("Max x")
-  print(x_large[count])
-  print("Out from ")
-  print(x_large)
-  print("Step x")
-  print(step_x[count])
-  print("Out from")
-  print(step_x)
-  fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = step_x[count],range = list(0,x_large[count])),
-                                  yaxis = list(title = 'Y-Axis',dtick = step_y[count],range = list(0,y_large[count])),
-                                  zaxis = list(title = 'Z-Axis',dtick = step_z[count],range = list(0,z_large[count])),
-                                  aspectmode = "manual",aspectratio = list(x = x_large[count]/f,y = y_large[count]/f,z = z_large[count]/f)))
+  f_<-0.3*f
 
-  fig<-fig%>%
-  animation_opts(mode = "next",
-                 easing = "elastic-in", redraw = FALSE
-  )
-
-  htmlwidgets::saveWidget(as_widget(fig), paste("animation",separate_zone,".html",sep = "_"), selfcontained = TRUE)
-  rm(fig)
   df<-data_
   df$label<-df$interaction
   # df$Time<-df$time
+  my_scale <- function(x) scales::rescale(x, to = c(min(data$time),max(data$time)))
+  print(paste("Minimum and maxima of data are as",min(df$time),"vs",max(df$time),"while for the entire dataset it is",min(data$time),"and",max(data$time)))
   fig<-df |> group_by(interaction) |> e_charts(x) |> 
-    e_scatter_3d(y,z,time,label)|>
+    e_scatter_3d(y,z,time,label, emphasis = list(focus = "self"))|>
     e_tooltip() |>
-    e_visual_map(time,inRange = list(value = c(min(df$time), max(df$time)),symbolSize = c(35,13)),dimension = 3) |>
+    e_visual_map(time,type = "continuous",min = 0,max = 100,inRange = list(symbol = "diamond",symbolSize = c(45,8)),scale = my_scale,dimension = 3,height = 100) |>
+    e_visual_map_range(selected = list(0,100))|>
     e_x_axis_3d(min = 0,max = x_large[count],interval = step_x[count])|>
     e_y_axis_3d(min = 0,max = y_large[count],interval = step_y[count])|>
     e_z_axis_3d(min = 0,max = z_large[count],interval = step_z[count], name = "Z / Altitude")|>
@@ -268,35 +306,6 @@ for (separate_zone in zone_unique2){
   #Time series plot animation
   rm(fig)
 
-  fig <- plot_ly(data_, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", frame = ~time, symbol=~interaction,text = ~paste(
-                           '<br>Time:', time, 'hours ','<br> Infection Event Type:',interaction, '<br> Zone: ',zone),
-                marker = list(
-                  color = "#15798C",
-                  size = transfer_distance*scaling_factor,
-                  opacity = 0.9,
-                  colorscale = 'Inferno'
-                ))
-
-  # Apply the custom color scale to the plot
-  # fig$x$data[[1]]$marker$colorscale <- custom_color_scale
-  # fig <- fig %>% add_markers()
-  # fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = step_x[separate_zone],range = list(0,x_large[separate_zone])),
-  #                                 yaxis = list(title = 'Y-Axis',dtick = step_y[separate_zone],range = list(0,y_large[separate_zone])),
-  #                                 zaxis = list(title = 'Z-Axis',dtick = step_z[separate_zone],range = list(0,z_large[separate_zone])),
-  #                                 aspectmode = "manual",aspectratio = list(x = x_large[separate_zone],y = y_large[separate_zone],z = z_large[separate_zone])))
-  fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = step_x[count],range = list(0,x_large[count])),
-                                  yaxis = list(title = 'Y-Axis',dtick = step_y[count],range = list(0,y_large[count])),
-                                  zaxis = list(title = 'Z-Axis',dtick = step_z[count],range = list(0,z_large[count])),
-                                  aspectmode = "manual",aspectratio = list(x = x_large[count]/f,y = y_large[count]/f,z = z_large[count]/f)))  
-
-  fig<-fig%>%
-  animation_opts(frame = 300,transition = 150,mode = "next",
-                 easing = "elastic-in", redraw = TRUE
-  )
-
-  htmlwidgets::saveWidget(as_widget(fig), paste("animation",separate_zone,"time_series",".html",sep = "_"), selfcontained = TRUE)  
-
-
 
 
   count<-count+1
@@ -306,36 +315,38 @@ for (separate_zone in zone_unique2){
 print("First section generation complete!")
 
 
+if (somethingSomethingplotly){
+  fig <- plot_ly(data, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", frame = ~zone,text = ~paste(
+                            '<br>Time:', time, 'hours ','<br> Infection Event Type:',interaction),
+                marker = list(
+                  color = ~time,
+                  size = transfer_distance*scaling_factor,
+                  opacity = 0.9,
+                  colorscale = 'Inferno',
+                  colorbar = list(
+                    title = 'Time',
+                    x = 0,
+                    y = 0.5,
+                    thickness = 5,
+                    dtick = 12,
+                    tick0 = 0
+                  )
+                ))
 
-fig <- plot_ly(data, x = ~x, y = ~y, z = ~z, mode = "markers", type = "scatter3d", frame = ~zone,text = ~paste(
-                           '<br>Time:', time, 'hours ','<br> Infection Event Type:',interaction),
-               marker = list(
-                 color = ~time,
-                 size = transfer_distance*scaling_factor,
-                 opacity = 0.9,
-                 colorscale = 'Inferno',
-                 colorbar = list(
-                   title = 'Time',
-                   x = 0,
-                   y = 0.5,
-                   thickness = 5,
-                   dtick = 12,
-                   tick0 = 0
-                 )
-               ))
-
-# Apply the custom color scale to the plot
-# fig$x$data[[1]]$marker$colorscale <- custom_color_scale
-# fig <- fig %>% add_markers()
-fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = max(step_x),range = list(0,max(x_large))),
-                                 yaxis = list(title = 'Y-Axis',dtick = max(step_y),range = list(0,max(y_large))),
-                                 zaxis = list(title = 'Z-Axis',dtick = max(step_z),range = list(0,max(z_large))),
-                                 aspectmode = 'manual',aspectratio = list(x = x_large,y = y_large,z = z_large)))
-
-
-htmlwidgets::saveWidget(as_widget(fig), "animation__byzones.html", selfcontained = TRUE)
+  # Apply the custom color scale to the plot
+  # fig$x$data[[1]]$marker$colorscale <- custom_color_scale
+  # fig <- fig %>% add_markers()
+  fig <- fig %>% layout(scene = list(xaxis = list(title = 'X-Axis',dtick = max(step_x),range = list(0,max(x_large))),
+                                  yaxis = list(title = 'Y-Axis',dtick = max(step_y),range = list(0,max(y_large))),
+                                  zaxis = list(title = 'Z-Axis',dtick = max(step_z),range = list(0,max(z_large))),
+                                  aspectmode = 'manual',aspectratio = list(x = x_large,y = y_large,z = z_large)))
 
 
+  htmlwidgets::saveWidget(as_widget(fig), "animation__byzones.html", selfcontained = TRUE)
+
+
+
+}
 
 
 
