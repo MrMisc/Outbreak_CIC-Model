@@ -247,3 +247,127 @@ htmlwidgets::saveWidget(fig_dots, "scatter.html", selfcontained = TRUE)
 
 
 # htmlwidgets::saveWidget(fig_dots, "scatter_plot_final.html", selfcontained = TRUE)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###DO NOT RUN LATER
+rm(data)
+library(echarts4r)
+library(echarts4r.assets)
+library(dplyr)
+setwd("E:/Outbreak_CIC_Model/")
+extra<-read.csv("extra.csv")
+S_<-read.csv("infections_sample.csv")
+# Rearranging the data
+S_rearranged <- S_ %>%
+  mutate(dates = time) %>%
+  select( -time) %>%
+  rename(groups = interaction, values = count)
+data<-S_rearranged
+# # Creating the river plot
+# data<-subset(S_rearranged, groups != "marker" && groups != "Host 0[*]")
+# 
+# data|>group_by(groups)|>
+#   e_charts(dates) |>
+#   e_line(values, stack = "grp2") |>
+#   e_tooltip() |>
+#   e_theme("vintage")|>
+#   e_datazoom()
+# 
+
+
+
+# Convert 'dates' column to numeric (if it's not already numeric)
+data$dates <- as.numeric(data$dates)
+
+# Create a template dataframe with all unique combinations of groups and dates
+all_combinations <- expand.grid(
+  groups = unique(data$groups),
+  dates = unique(data$dates)
+)
+
+# Merge the template with the existing data
+filled_data <- merge(all_combinations, data, by = c("groups", "dates"), all = TRUE)
+
+# Replace missing values with 0
+filled_data[is.na(filled_data$values), "values"] <- 0
+
+# e_theme(
+#   e,
+#   name = c("auritus", "azul", "bee-inspired", "blue", "caravan", "carp", "chalk", "cool",
+#            "dark-blue", "dark-bold", "dark-digerati", "dark-fresh-cut", "dark-mushroom", "dark",
+#            "eduardo", "essos", "forest", "fresh-cut", "fruit", "gray", "green", "halloween",
+#            "helianthus", "infographic", "inspired", "jazz", "london", "macarons", "macarons2",
+#            "mint", "purple-passion", "red-velvet", "red", "roma", "royal", "sakura", "shine",
+#            "tech-blue", "vintage", "walden", "wef", "weforum", "westeros", "wonderland")
+# )
+
+
+
+# Sort the combined data by 'groups' and 'dates'
+filled_data <- filled_data[order(filled_data$groups, filled_data$dates), ]
+filled_data|>group_by(groups)|>
+  e_charts(dates) |>
+  e_area(values,
+         emphasis = list(
+           focus = "self"
+         )) |> 
+  e_y_axis(min = 0)|>
+  e_tooltip()  |>
+  e_theme("westeros")|>
+  e_datazoom(
+    type = "slider",
+    toolbox = TRUE,
+    bottom = 10
+  )|>
+  e_legend(right = 5,top = 80,selector = "inverse",show=TRUE,icon = 'circle',emphasis = list(selectorLabel = list(offset = list(10,0))), align = 'right',type = "scroll",width = 10,orient = "vertical")|>
+  e_legend_unselect("marker")|>
+  e_legend_unselect("Host 0[*]")|>
+  e_title(paste("Infection Occurrences over Time by Type"), "CIC Model | by Irshad Ul Ala")
+  
+summed_data <- filled_data %>%
+  group_by(groups, dates) %>%
+  summarise(total_values = sum(values)) %>%
+  ungroup() %>%
+  group_by(groups) %>%
+  summarise(values = sum(total_values))
+
+subset(summed_data,groups!="marker")|> e_charts(groups)|>e_pie(values, roseType = "radius")|>
+  e_legend(show = FALSE)
+
+
+##COMBINE
+filled_data|>group_by(groups)|>
+  e_charts(dates) |>
+  e_area(values,
+         emphasis = list(
+           focus = "self"
+         )) |> 
+  e_y_axis(min = 0)|>
+  e_tooltip()  |>
+  e_theme("westeros")|>
+  e_datazoom(
+    type = "slider",
+    toolbox = TRUE,
+    bottom = 10
+  )|>
+  e_legend(right = 5,top = 80,selector = "inverse",show=TRUE,icon = 'circle',emphasis = list(selectorLabel = list(offset = list(10,0))), align = 'right',type = "scroll",width = 10,orient = "vertical")|>
+  e_legend_unselect("marker")|>
+  e_legend_unselect("Host 0[*]")|>
+  e_title(paste("Infection Occurrences over Time by Type"), "CIC Model | by Irshad Ul Ala")|>
+  e_data(summed_data,values)|>e_pie(values, roseType = "radius")|>
+  e_legend(show = FALSE)
+ 
+
