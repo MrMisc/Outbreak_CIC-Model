@@ -255,7 +255,7 @@ for (separate_zone in zone_unique2){
   fig<-df |> group_by(interaction) |> e_charts(x) |> 
     e_scatter_3d(y,z,time,label)|>
     e_tooltip() |>
-    e_visual_map(time,inRange = list(symbolSize = c(35,13)),dimension = 3) |>
+    e_visual_map(time,inRange = list(value = c(min(df$time), max(df$time)),symbolSize = c(35,13)),dimension = 3) |>
     e_x_axis_3d(min = 0,max = x_large[count],interval = step_x[count])|>
     e_y_axis_3d(min = 0,max = y_large[count],interval = step_y[count])|>
     e_z_axis_3d(min = 0,max = z_large[count],interval = step_z[count], name = "Z / Altitude")|>
@@ -402,8 +402,62 @@ fig <- ggplot(S, aes(y = count,x = time, color = as.factor(interaction))) +
 fig <- ggplotly(fig, dynamicTicks = TRUE)
 
 htmlwidgets::saveWidget(fig, "Line.html", selfcontained = TRUE)
-
+rm(fig)
 # write.csv(S_,"infections_sample.csv", row.names = FALSE)
+# write.csv(S,"extra.csv", row.names = FALSE)
+data <- S_ %>%
+  mutate(dates = time) %>%
+  select( -time) %>%
+  rename(groups = interaction, values = count)
+
+# Convert 'dates' column to numeric (if it's not already numeric)
+data$dates <- as.numeric(data$dates)
+
+# Create a template dataframe with all unique combinations of groups and dates
+all_combinations <- expand.grid(
+  groups = unique(data$groups),
+  dates = unique(data$dates)
+)
+
+# Merge the template with the existing data
+filled_data <- merge(all_combinations, data, by = c("groups", "dates"), all = TRUE)
+
+# Replace missing values with 0
+filled_data[is.na(filled_data$values), "values"] <- 0
+
+# e_theme(
+#   e,
+#   name = c("auritus", "azul", "bee-inspired", "blue", "caravan", "carp", "chalk", "cool",
+#            "dark-blue", "dark-bold", "dark-digerati", "dark-fresh-cut", "dark-mushroom", "dark",
+#            "eduardo", "essos", "forest", "fresh-cut", "fruit", "gray", "green", "halloween",
+#            "helianthus", "infographic", "inspired", "jazz", "london", "macarons", "macarons2",
+#            "mint", "purple-passion", "red-velvet", "red", "roma", "royal", "sakura", "shine",
+#            "tech-blue", "vintage", "walden", "wef", "weforum", "westeros", "wonderland")
+# )
+
+
+
+# Sort the combined data by 'groups' and 'dates'
+filled_data <- filled_data[order(filled_data$groups, filled_data$dates), ]
+fig<-filled_data|>group_by(groups)|>
+  e_charts(dates) |>
+  e_area(values,
+         emphasis = list(
+           focus = "self"
+         )) |> 
+  e_y_axis(min = 0)|>
+  e_tooltip()  |>
+  e_theme("westeros")|>
+  e_datazoom(
+    type = "slider",
+    toolbox = TRUE,
+    bottom = 10
+  )|>
+  e_legend(right = 5,top = 80,selector = "inverse",show=TRUE,icon = 'circle',emphasis = list(selectorLabel = list(offset = list(10,0))), align = 'right',type = "scroll",width = 10,orient = "vertical")|>
+  e_legend_unselect("marker")|>
+  e_legend_unselect("Host 0[*]")|>
+  e_title(paste("Infection Occurrences over Time by Type"), "CIC Model | by Irshad Ul Ala")
+htmlwidgets::saveWidget(fig, "EAreaHistogram.html", selfcontained = TRUE)
 
 rm(fig)
 fig<-S_ |> group_by(interaction) |> e_charts(time) |>
