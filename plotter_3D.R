@@ -292,7 +292,7 @@ for (separate_zone in zone_unique2){
   fig<-df |> group_by(interaction) |> e_charts(x) |> 
     e_scatter_3d(y,z,time,label, emphasis = list(focus = "self"))|>
     e_tooltip() |>
-    e_visual_map(time,type = "continuous",min = 0,max = 100,inRange = list(symbol = "diamond",symbolSize = c(45,8)),scale = my_scale,dimension = 3,height = 100) |>
+    e_visual_map(time,type = "continuous",min = 0,max = 100,inRange = list(symbol = "diamond",symbolSize = c(45,8), colorLightness = c(0.6,0.35)),scale = my_scale,dimension = 3,height = 100) |>
     e_visual_map_range(selected = list(0,100))|>
     e_x_axis_3d(min = 0,max = x_large[count],interval = step_x[count])|>
     e_y_axis_3d(min = 0,max = y_large[count],interval = step_y[count])|>
@@ -416,6 +416,7 @@ htmlwidgets::saveWidget(fig, "Line.html", selfcontained = TRUE)
 rm(fig)
 # write.csv(S_,"infections_sample.csv", row.names = FALSE)
 # write.csv(S,"extra.csv", row.names = FALSE)
+write.csv(data,"full.csv", row.names = FALSE)
 data <- S_ %>%
   mutate(dates = time) %>%
   select( -time) %>%
