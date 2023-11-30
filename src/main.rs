@@ -343,12 +343,12 @@ pub struct host{
 }
 //Note that if you want to adjust the number of zones, you have to, in addition to adjusting the individual values to your liking per zone, also need to change the slice types below!
 //Resolution
-const STEP:[[usize;3];3] = [[1000,1000,20],[20,10,10],[4,4,4]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
+const STEP:[[usize;3];2] = [[10,10,10],[10,10,10]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
 const HOUR_STEP: f64 = 4.0; //Number of times hosts move per hour
-const LENGTH: usize =48; //How long do you want the simulation to be?
+const LENGTH: usize =12; //How long do you want the simulation to be?
 //Infection/Colonization module
 // ------------Do only colonized hosts spread disease or do infected hosts spread
-const HOST_0:f64 = 15.0;
+const HOST_0:usize = 10;
 const COLONIZATION_SPREAD_MODEL:bool = true;
 const TIME_OR_CONTACT:bool = true; //true for time -> contact uses number of times infected to determine colonization
 const IMMORTAL_CONTAMINATION:bool = false;
@@ -374,20 +374,20 @@ const EGGTOFAECES_CONTACT_SPREAD:bool = true;
 const FAECESTOEGG_CONTACT_SPREAD:bool = true;
 // const INITIAL_COLONIZATION_RATE:f64 = 0.47; //Probability of infection, resulting in colonization -> DAILY RATE ie PER DAY
 //Space
-const LISTOFPROBABILITIES:[f64;3] = [0.8,0.8,0.8]; //Probability of transfer of disease per zone - starting from zone 0 onwards
-const CONTACT_TRANSMISSION_PROBABILITY:[f64;3] = [0.5,0.5,0.5];
-const GRIDSIZE:[[f64;3];3] = [[1000.0,1000.0,20.0],[100.0,1000.0,10.0],[500.0,500.0,4.0]];
+const LISTOFPROBABILITIES:[f64;2] = [0.8,0.8]; //Probability of transfer of disease per zone - starting from zone 0 onwards
+const CONTACT_TRANSMISSION_PROBABILITY:[f64;2] = [0.8,0.8];
+const GRIDSIZE:[[f64;3];2] = [[100.0,100.0,40.0],[100.0,100.0,40.0]];
 const MAX_MOVE:f64 = 10.0;
 const MEAN_MOVE:f64 = 4.0;
 const STD_MOVE:f64 = 3.0; // separate movements for Z config
 const MAX_MOVE_Z:f64 = 1.0;
 const MEAN_MOVE_Z:f64 = 2.0;
 const STD_MOVE_Z:f64 = 4.0;
-const NO_OF_HOSTS_PER_SEGMENT:[u64;3] = [5000,4,4];
+const NO_OF_HOSTS_PER_SEGMENT:[u64;2] = [12,8];
 //Anchor points
 //Vertical perches
 const PERCH:bool = false;
-const PERCH_ZONES:[usize;1]= [1];
+const PERCH_ZONES:[usize;1]= [4];
 const PERCH_HEIGHT:f64 = 2.0; //Number to be smaller than segment range z -> Denotes frequency of heights at which hens can perch
 const PERCH_FREQ:f64 = 0.5; //probability that hosts go to perch
 const DEPERCH_FREQ:f64 = 0.4; //probability that a host when already on perch, decides to go down from perch
@@ -395,12 +395,12 @@ const DEPERCH_FREQ:f64 = 0.4; //probability that a host when already on perch, d
 const NEST:bool = false;
 const NESTING_AREA:f64 = 0.25; //ratio of the total area of segment in of which nesting area is designated - min x y z side
 //Space --- Segment ID
-const TRANSFERS_ONLY_WITHIN:[bool;3] = [false,false,false]; //Boolean that informs simulation to only allow transmissions to occur WITHIN segments, not between adjacent segments
+const TRANSFERS_ONLY_WITHIN:[bool;2] = [false,false]; //Boolean that informs simulation to only allow transmissions to occur WITHIN segments, not between adjacent segments
 //Fly option
 const FLY:bool = false;
 const FLY_FREQ:u8 = 3; //At which Hour step do the  
 //Disease 
-const TRANSFER_DISTANCE: f64 = 1.3;//maximum distance over which hosts can trasmit diseases to one another
+const TRANSFER_DISTANCE: f64 = 1.0;//maximum distance over which hosts can trasmit diseases to one another
 const SIZE_FACTOR_FOR_EGGS:f64 = 0.15; //eggs are significantly smaller than their original hosts, so it stands to reason that their transfer distance for contact spread should be smaller
 //Host parameters
 const PROBABILITY_OF_INFECTION:f64 = 0.12; //probability of imported host being infected
@@ -417,17 +417,18 @@ const DEPOSIT_RATE_INFECTION_MULTIPLIER:f64 = 2.0/3.0;
 //
 
 //Feed parameters
-const FEED_1:bool = false; //Do the hosts get fed - omnipotent method
-const FEED_2:bool = true;//Do the hosts get fed - with standalone feeders ->crowding implication
-const FEED_INFECTION_RATE:f64 = 0.003; //Probability of feed being infected
+const FEED_1:bool = true; //Do the hosts get fed - omnipotent method -> Like feeder belts (adjust Feed infected and Feed infection rate for that) or simply one on one at the same time (true omnipotent method)
+const FEED_2:bool = false;//Do the hosts get fed - with standalone feeders ->crowding implication
+const FEED_INFECTED:f64 = 0.11; //Proportion of times that feed gets infected - set to 1.0 if you simply want to simulate separate feed sources that are independent of each other in terms of being infected at start 
+const FEED_INFECTION_RATE:f64 = 0.8; //Probability of INFECTED FEED infecting hosts that consume it - CAN either mean a. probability that independent feed is infected (ind. of other feed sources being infected at the time) b. ALL feed at time is infected, and this denotes chance that consumption of infected feed leads to infection in host
 const FEED_ZONES:[usize;2] = [0,1]; //To set the zones that have feed provided to them.
-const FEED_TIMES: [usize;2] = [11,14]; //24h format, when hosts get fed: Does not have to be only 2 - has no link to number of zones or anything like that
+const FEED_TIMES: [usize;2] = [11,5]; //24h format, when hosts get fed: Does not have to be only 2 - has no link to number of zones or anything like that
 const FEEDER_SPACING:f64 = 2.5;
 const FEED_DURATION:f64 = 0.5;
 
 
 //Purge/Slaughter parameters
-const SLAUGHTER_POINT:usize = 1; //Somewhere in zone {}, the hosts are slaughtered/killed and will cease to produce any eggs or faeces
+const SLAUGHTER_POINT:usize = 10; //Somewhere in zone {}, the hosts are slaughtered/killed and will cease to produce any eggs or faeces
 //Evisceration parameters
 const EVISCERATE:bool = false;
 const EVISCERATE_ZONES:[usize;1] = [2]; //Zone in which evisceration takes place
@@ -439,7 +440,7 @@ const MISHAP:bool = false;
 const MISHAP_PROBABILITY:f64 = 0.01;
 const MISHAP_RADIUS:f64 = 9.0; //Must be larger than the range_x of the eviscerate boxes for there to be any change in operation
 //Transfer parameters
-const ages:[f64;3] = [15.0,15.0,15.0]; //Time hosts are expected spend in each region minimally
+const ages:[f64;2] = [4.0,20.0]; //Time hosts are expected spend in each region minimally
 //Collection
 const AGE_OF_HOSTCOLLECTION: f64 = 20.0*24.0;  //For instance if you were collecting hosts every 15 days
 const COLLECT_DEPOSITS: bool = true;
@@ -482,10 +483,10 @@ impl host{
         })
     }
     fn feed(mut vector:&mut Vec<host>, origin_x:u64,origin_y:u64,origin_z:u64, zone:usize,time:usize){
-        if FEED_1&&roll(FEED_INFECTION_RATE){
+        if FEED_1&&roll(FEED_INFECTED){
             // println!("Infected feed confirmed");
             vector.iter_mut().for_each(|mut h|{
-                if h.motile == 0 && !h.infected && h.origin_x == origin_x && h.origin_y == origin_y && h.origin_z == origin_z && h.zone == zone{
+                if roll(FEED_INFECTION_RATE) && h.motile == 0 && !h.infected && h.origin_x == origin_x && h.origin_y == origin_y && h.origin_z == origin_z && h.zone == zone{
                     h.infected = h.transfer(1.0);
                     println!("{} {} {} {} {} {}",h.x,h.y,h.z,10,time,h.zone); //10 is now an interaction type driven by the infected feed
                 }
@@ -506,8 +507,9 @@ impl host{
             let total_to_feed:usize = total_to_feed.len();
             let per:usize = total_to_feed/(no as usize);
             // let counter:usize = 0;
-            for x in 1..x_no{
+            for x in 1..x_no{ //indices of the feeder -> not location
                 for y in 1..y_no{
+                    let is_feed_infected:bool = roll(FEED_INFECTED); //IS THE FEED AT THIS LOCATION INFECTED?
                     //relative origin_location to segment frame of reference
                     let x_location = FEEDER_SPACING*(x as f64);
                     let y_location = FEEDER_SPACING*(y as f64);
@@ -517,17 +519,21 @@ impl host{
                     vector.iter_mut().filter(|h| h.motile == 0 && h.origin_x == origin_x && h.origin_y == origin_y && h.origin_z == origin_z && h.zone == zone).skip(start_index).take(per).for_each(|h| {
                         h.eat_x = x_location;
                         h.eat_y = y_location;
+                        if is_feed_infected && !h.infected && roll(FEED_INFECTION_RATE){
+                            h.infected = h.transfer(1.0);
+                            println!("{} {} {} {} {} {}",h.x,h.y,h.z,10,time,h.zone); //10 is now an interaction type driven by the infected feed
+                        }
                     })
                 }
             }
-            if roll(FEED_INFECTION_RATE){
-                vector.iter_mut().for_each(|mut h|{
-                    if h.motile == 0 && !h.infected && h.origin_x == origin_x && h.origin_y == origin_y && h.origin_z == origin_z && h.zone == zone{
-                        h.infected = h.transfer(1.0);
-                        println!("{} {} {} {} {} {}",h.x,h.y,h.z,10,time,h.zone); //10 is now an interaction type driven by the infected feed
-                    }
-                })                       
-            }
+            // if roll(FEED_INFECTED){
+            //     vector.iter_mut().for_each(|mut h|{
+            //         if roll(FEED_INFECTION_RATE) && h.motile == 0 && !h.infected && h.origin_x == origin_x && h.origin_y == origin_y && h.origin_z == origin_z && h.zone == zone{
+            //             h.infected = h.transfer(1.0);
+            //             println!("{} {} {} {} {} {}",h.x,h.y,h.z,10,time,h.zone); //10 is now an interaction type driven by the infected feed
+            //         }
+            //     })                       
+            // }
         }
     }
     fn infect(mut vector:Vec<host>,loc_x:u64,loc_y:u64,loc_z:u64,zone:usize)->Vec<host>{
@@ -1224,7 +1230,7 @@ fn main(){
 
     //MORE EFFICIENT WAY TO INFECT MORE hosts - insize zone 0
     let zone_to_infect:usize = 0;
-    hosts = host::infect_multiple(hosts,GRIDSIZE[zone_to_infect][0] as u64/2,GRIDSIZE[zone_to_infect][1] as u64/2,GRIDSIZE[zone_to_infect][2] as u64/2,18,0, true);
+    hosts = host::infect_multiple(hosts,GRIDSIZE[zone_to_infect][0] as u64/2,GRIDSIZE[zone_to_infect][1] as u64/2,GRIDSIZE[zone_to_infect][2] as u64/2,HOST_0,0, true);
     // println!("Total number of hosts is {}", hosts.len());
     for segment in &mut zones[0].segments {
         // println!("Segment has coordinates {} {} {}", segment.origin_x, segment.origin_y, segment.origin_z);
