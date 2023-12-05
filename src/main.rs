@@ -256,63 +256,195 @@ impl Zone_3D{
             }
         }
     }
-    fn eviscerate(&mut self,eviscerators:&mut Vec<Eviscerator>, vector:&mut Vec<host>,time:usize){
-        //DO THE MISHAP EXPLOSION BEFOREHAND
-        // Decision:If the mishap explosion does not even exceed the spacing between the evisceration belt in side the eviscerationi zone, we do not need to bother doing mishap explosions
-        if MISHAP && MISHAP_RADIUS as u64>self.segments[0].range_x{
-            let index_spacing:usize = (MISHAP_RADIUS as u64/ self.segments[0].range_x) as usize;
-            vector.sort_by(|a,b| a.origin_x.cmp(&b.origin_x));
-            let mut ind:Vec<usize> = Vec::new();
-            vector.iter_mut().enumerate().for_each(|(idx,mut host)| {
-                if EVISCERATE_ZONES.contains(&host.zone) && host.infected && roll(MISHAP_PROBABILITY){
-                    // panic!("Kaboom!");
-                    ind.push(idx);
-                }
-            });
-            for &idx in &ind{
-                let start_index = if idx >= index_spacing {idx-index_spacing}else{0};
-                let end_index = std::cmp::min(idx+index_spacing+1,vector.len());
-                for host in &mut vector[start_index..end_index]{
-                    host.infected = true;
-                    println!("{} {} {} {} {} {}",host.x,host.y,host.z,13,time,host.zone);
-                }
-            }            
-        }
-
+    fn eviscerate(&mut self,eviscerators:&mut Vec<Eviscerator>, vector1:&mut Vec<host>,time:usize){
+        let mut vector: Vec<&mut host> = vector1.iter_mut().filter(|host| !host.eviscerated).collect();
+        let vector_length:usize = vector.len();
         //Filter out eviscerators that are for the zone in particular
         let mut evs: Vec<&mut Eviscerator> = eviscerators.iter_mut().filter(|ev| ev.zone == self.zone).collect();
         // Define the step size for comparison
         let step_size = evs.len();
-        //Organic iteration
-        for (j, host) in vector.iter_mut().enumerate() {
-            // Compare and update the elements in the larger vector
-            // if eviscerator.values_are_greater(larger_value) {
-            //     *larger_value = eviscerator.values.clone(); // Assuming your struct has a clone method
-            let mut eviscerator:&mut Eviscerator = evs[j%step_size];
-            if host.infected && host.zone == eviscerator.zone{
-                eviscerator.infected = true;
-                // println!("EVISCERATOR HAS BEEN INFECTED AT TIME {} of this host stock entering zone!",host.time);
-                eviscerator.number_of_times_infected = 0;
-                println!("{} {} {} {} {} {}",host.x,host.y,host.z,12,time,host.zone);
-            }else if eviscerator.infected && host.zone == eviscerator.zone{
-                // println!("Confirming that an eviscerator is infected in zone {}",eviscerator.zone);
-                host.infected = host.transfer(limits::max(0.0,1.0-(eviscerator.number_of_times_infected as f64)*EVISCERATOR_TO_HOST_PROBABILITY_DECAY));
-                eviscerator.number_of_times_infected += 1;
-                if host.infected{
-                    println!("{} {} {} {} {} {}",host.x,host.y,host.z,11,time,host.zone);
-                    // panic!("Evisceration has infected a host!!!");
-                }
-            }
-            //Decay of infection
-            if eviscerator.number_of_times_infected>=EVISCERATE_DECAY{
-                eviscerator.infected = false;
-            }
+
+        fn radialise(ang:f64, dist:f64,d:f64)->bool{
+            //Function to convert the radial distance between 2 points into a linear distance (minimum distance between these 2 points, and compare it )
+            let mut min:f64 = 2.0*(1.0 - ang.cos()); 
+            min = min.powf(0.5)*(dist)/ang;
+            min < d
         }
+
+        // Decision:If the mishap explosion does not even exceed the spacing between the evisceration belt in side the eviscerationi zone, we do not need to bother doing mishap explosions
+        //if CURVATURE is false -> all calculations below for minimum distance follow the typical self.segments[0].range_xand linear calculations propagate forward 
+        let have_curvature:f64 = (CURVATURE as u64) as f64;
+        //unit angle between stations of hosts in evisceration process
+        let angle:f64 = PI/(step_size as f64 - 1.0) * have_curvature + PI*(1.0 - have_curvature); 
+        //Cosine rule to calculate c from a,b and angle AB between 2 nearest ( this and next line)
+        let mut minimum_distance:f64 = 2.0*(1.0 - angle.cos()); 
+        minimum_distance = minimum_distance.powf(0.5)*(self.segments[0].range_x as f64)/angle;
+        //Way to remove this curvature calculation if CURVATURE IS FALSE -> relegating calculation to just the second linear term instead
+        minimum_distance = minimum_distance*have_curvature + (self.segments[0].range_x as f64)*(1.0 - have_curvature);
+
+        //Create a variable that denotes the number of indices/segment units as spaces
+        let mut index_spacing:usize = 0;
+        //If we are dealing with a simple straight configuration...
+        if !CURVATURE{index_spacing = (MISHAP_RADIUS as u64/ self.segments[0].range_x) as usize;}   
+        //Indices of all hosts that undergo MISHAP is inside list of indices ind
+        //Note that in CURVATURE model, if the stations are positioned adequately away angularly, there may very well be blockage from that angle -> shielding from MISHAP
+        //We use a user defined variable -> ANGLE MAXIMA to denote the maximum angualr displacement under which MISHAPS can be spread
+        let mut no:usize = 0;
+        if CURVATURE && ANGLE_MAXIMA<PI{
+            no = ((ANGLE_MAXIMA/angle) as u64) as usize;
+            if no<index_spacing{index_spacing = no.clone();}
+        }   
+        
+        vector.sort_by(|a,b| a.origin_x.cmp(&b.origin_x));
+        let mut ind:Vec<usize> = Vec::new();
+        //Range to be affected, with respect to each origin point
+        let mut revised_ind:Vec<[usize;4]> = Vec::new(); 
+
+
+        if MISHAP && MISHAP_RADIUS>minimum_distance{
+
+            //Sort segments by their origin_x position since in evisceration zone, we practice one layer eviscertation
+            
+            //Looking at the hosts as an array of indices, we create the following
+            //Vector of origin points for mishap explosions
+
+            vector.iter_mut().enumerate().for_each(|(idx,mut host)| {
+                if host.infected && roll(MISHAP_PROBABILITY) && !host.eviscerated{
+                    ind.push(idx);
+                }
+            });
+
+            for &idx in &ind{
+                //Criteria for determining start and end index of affected hosts by the mishap explosion
+                //pre-emptively calculate it ot be within the bounds of vector
+                let mut minima:usize = idx - idx%step_size;
+                let mut maxima:usize = idx - idx%step_size+step_size;
+                if minima<0{minima = 0;}
+                if maxima>vector.len(){maxima = vector.len();}
+                let mut start_index = if idx >= index_spacing {idx-index_spacing}else{minima};
+                let mut end_index = std::cmp::min(idx+index_spacing+1,maxima);
+                if CURVATURE{
+                    //Curvature has a tendency to compress distances together, not lengthen. In other words, we can simply check to see if the remaining excluded stations are within range now
+                    //Edit start_index -> See if extendable
+                    while start_index > minima && radialise(((idx - start_index) as f64/(step_size as f64) * PI), (((idx - start_index) as u64)*self.segments[0].range_x) as f64, MISHAP_RADIUS) {
+                        start_index -= 1;
+                    }
+                    // Increase end_index if extendable
+                    while end_index < maxima && radialise(((end_index -idx) as f64/(step_size as f64) * PI), (((end_index -idx) as u64)*self.segments[0].range_x) as f64, MISHAP_RADIUS)  {
+                        end_index += 1;
+                    }
+                }
+
+
+                revised_ind.push([idx - idx%step_size,idx,start_index, end_index]);
+                // println!("{} {} {} {} {} {}",host.x,host.y,host.z,13,time,host.zone);
+
+
+
+            }            
+        }
+
+        // --------
+        //Evisceration spread
+        vector.sort_by(|a,b| a.origin_x.cmp(&b.origin_x));
+        // Create an iterator to loop over the vector in step_size chunks
+        let mut chunk_iter = vector.chunks_exact_mut(step_size);
+
+        // Initialize a counter to keep track of the global index
+        let mut global_index = 0;        
+        let mut indices_to_infect: Vec<usize> = Vec::new();
+        // if let Some(first_chunk) = chunk_iter.next() {
+        //     //just an example of a wayt o access the first element per chunk
+        //     if let Some(first_element) = first_chunk.first_mut(){
+
+        //     }
+        // }
+        for chunk in chunk_iter{
+            let mut start:Vec<usize> = Vec::new();
+            let mut end:Vec<usize> = Vec::new();
+            let mut trigger:Vec<usize> = Vec::new();
+            let mut fail:bool = true;
+            let matched_arrays: Vec<&[usize; 4]> = revised_ind
+            .iter()
+            .filter(|array| MISHAP && evs[array[1]%step_size].infected && roll(MISHAP_PROBABILITY) && roll(1.0-(evs[array[1]%step_size].number_of_times_infected as f64)*EVISCERATOR_TO_HOST_PROBABILITY_DECAY) && array[0] == global_index)
+            .collect();
+    
+            // Extract the third index from each matched array and collect into matched_indices
+            for matched_array in matched_arrays {
+                trigger.push(matched_array[1]);
+                start.push(matched_array[2]);
+                end.push(matched_array[3]);
+            }       
+
+
+
+            let start:usize = match start.iter().min(){
+                Some(x) => *x,
+                _ => 1000
+            };
+            let end:usize = match end.iter().max(){
+                Some(x) => *x,
+                _ => 1000
+            };
+
+            fail = start == 1000 && end == 1000;
+            
+
+            for (j_ele, host) in chunk.iter_mut().enumerate()  {
+                let j = global_index + j_ele;
+                // Compare and update the elements in the larger vector
+                if j >= start && j <= end && !fail {
+                    //THIS SECTION HERE IS WHERE THE MISHAP explosions are applied RIGHT BEFORE the eviscerators 
+                    host.infected = true;
+                    println!("{} {} {} {} {} {}",host.x,host.y,host.z,13,time,host.zone);
+                }                
+                let mut eviscerator:&mut Eviscerator = evs[j%step_size];
+                if host.infected && host.zone == eviscerator.zone && !host.eviscerated{
+                    eviscerator.infected = true;
+                    // println!("EVISCERATOR HAS BEEN INFECTED AT TIME {} of this host stock entering zone!",host.time);
+                    eviscerator.number_of_times_infected = 0;
+                    println!("{} {} {} {} {} {}",host.x,host.y,host.z,12,time,host.zone);
+                }else if eviscerator.infected && host.zone == eviscerator.zone && !host.eviscerated{
+                    // println!("Confirming that an eviscerator is infected in zone {}",eviscerator.zone);
+                    host.infected = host.transfer(limits::max(0.0,1.0-(eviscerator.number_of_times_infected as f64)*EVISCERATOR_TO_HOST_PROBABILITY_DECAY));
+                    eviscerator.number_of_times_infected += 1;
+                    if host.infected{
+                        println!("{} {} {} {} {} {}",host.x,host.y,host.z,11,time,host.zone);
+                    }
+                }
+                //Decay of infection
+                if eviscerator.number_of_times_infected>=EVISCERATE_DECAY{
+                    eviscerator.infected = false;
+                }
+                host.eviscerated = true;
+                // if MISHAP && host.infected && ind.contains(&j) && MISHAP_RADIUS>minimum_distance && roll(MISHAP_PROBABILITY){
+                // }
+            }
+            global_index += step_size;
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     }    
 }
 
 #[derive(Clone)]
 pub struct host{
+    eviscerated:bool,
     contaminated:bool,
     infected:bool,
     number_of_times_infected:u32,
@@ -343,7 +475,7 @@ pub struct host{
 }
 //Note that if you want to adjust the number of zones, you have to, in addition to adjusting the individual values to your liking per zone, also need to change the slice types below!
 //Resolution
-const STEP:[[usize;3];2] = [[10,10,10],[10,10,10]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
+const STEP:[[usize;3];1] = [[10,10,10]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
 const HOUR_STEP: f64 = 4.0; //Number of times hosts move per hour
 const LENGTH: usize =12; //How long do you want the simulation to be?
 //Infection/Colonization module
@@ -374,16 +506,16 @@ const EGGTOFAECES_CONTACT_SPREAD:bool = true;
 const FAECESTOEGG_CONTACT_SPREAD:bool = true;
 // const INITIAL_COLONIZATION_RATE:f64 = 0.47; //Probability of infection, resulting in colonization -> DAILY RATE ie PER DAY
 //Space
-const LISTOFPROBABILITIES:[f64;2] = [0.8,0.8]; //Probability of transfer of disease per zone - starting from zone 0 onwards
-const CONTACT_TRANSMISSION_PROBABILITY:[f64;2] = [0.8,0.8];
-const GRIDSIZE:[[f64;3];2] = [[100.0,100.0,40.0],[100.0,100.0,40.0]];
+const LISTOFPROBABILITIES:[f64;1] = [0.8]; //Probability of transfer of disease per zone - starting from zone 0 onwards
+const CONTACT_TRANSMISSION_PROBABILITY:[f64;1] = [0.8];
+const GRIDSIZE:[[f64;3];1] = [[1000.0,10.0,10.0]];
 const MAX_MOVE:f64 = 10.0;
 const MEAN_MOVE:f64 = 4.0;
 const STD_MOVE:f64 = 3.0; // separate movements for Z config
 const MAX_MOVE_Z:f64 = 1.0;
 const MEAN_MOVE_Z:f64 = 2.0;
 const STD_MOVE_Z:f64 = 4.0;
-const NO_OF_HOSTS_PER_SEGMENT:[u64;2] = [12,8];
+const NO_OF_HOSTS_PER_SEGMENT:[u64;1] = [1];
 //Anchor points
 //Vertical perches
 const PERCH:bool = false;
@@ -417,30 +549,37 @@ const DEPOSIT_RATE_INFECTION_MULTIPLIER:f64 = 2.0/3.0;
 //
 
 //Feed parameters
-const FEED_1:bool = true; //Do the hosts get fed - omnipotent method -> Like feeder belts (adjust Feed infected and Feed infection rate for that) or simply one on one at the same time (true omnipotent method)
+const FEED_1:bool = false; //Do the hosts get fed - omnipotent method -> Like feeder belts (adjust Feed infected and Feed infection rate for that) or simply one on one at the same time (true omnipotent method)
 const FEED_2:bool = false;//Do the hosts get fed - with standalone feeders ->crowding implication
 const FEED_INFECTED:f64 = 0.11; //Proportion of times that feed gets infected - set to 1.0 if you simply want to simulate separate feed sources that are independent of each other in terms of being infected at start 
 const FEED_INFECTION_RATE:f64 = 0.8; //Probability of INFECTED FEED infecting hosts that consume it - CAN either mean a. probability that independent feed is infected (ind. of other feed sources being infected at the time) b. ALL feed at time is infected, and this denotes chance that consumption of infected feed leads to infection in host
-const FEED_ZONES:[usize;2] = [0,1]; //To set the zones that have feed provided to them.
-const FEED_TIMES: [usize;2] = [11,5]; //24h format, when hosts get fed: Does not have to be only 2 - has no link to number of zones or anything like that
+const FEED_ZONES:[usize;1] = [0]; //To set the zones that have feed provided to them.
+const FEED_TIMES: [usize;2] = [5,11]; //24h format, when hosts get fed: Does not have to be only 2 - has no link to number of zones or anything like that
 const FEEDER_SPACING:f64 = 2.5;
 const FEED_DURATION:f64 = 0.5;
 
 
 //Purge/Slaughter parameters
-const SLAUGHTER_POINT:usize = 10; //Somewhere in zone {}, the hosts are slaughtered/killed and will cease to produce any eggs or faeces
+const SLAUGHTER_POINT:usize = 0; //Somewhere in zone {}, the hosts are slaughtered/killed and will cease to produce any eggs or faeces
 //Evisceration parameters
-const EVISCERATE:bool = false;
-const EVISCERATE_ZONES:[usize;1] = [2]; //Zone in which evisceration takes place
+//We assume that all hosts are isolated from the rest of the hosts in the zone per evisceration "unit"
+const EVISCERATE:bool = true;
+const EVISCERATE_ZONES:[usize;1] = [0]; //Zone in which evisceration takes place
 const EVISCERATE_DECAY:u8 = 5;
 const NO_OF_EVISCERATORS:[usize;1] = [6];
 const EVISCERATOR_TO_HOST_PROBABILITY_DECAY:f64 = 0.25;   //Multiplicative decrease of  probability - starting from LISTOFPROBABILITIES value 100%->75% (if 0.25 is value)->50% ->25%->0%
+
+const CURVATURE:bool = true;
+//We are assuming that when eviscerators are brought into a circle, the distance between them is maintained - inevitably determining the radius of the curvature
+//In other words, we are assuming that all the eviscerator probes fit within a semicircle, and that there is no extension of this range of eviscerators
+const PI:f64 = std::f64::consts::PI;
+const ANGLE_MAXIMA:f64 = 0.75*PI; //Maximum angular displacement, above which, mishaps cannot travel anyway
 //Evisceration -------------> Mishap/Explosion parameters
-const MISHAP:bool = false;
-const MISHAP_PROBABILITY:f64 = 0.01;
-const MISHAP_RADIUS:f64 = 9.0; //Must be larger than the range_x of the eviscerate boxes for there to be any change in operation
+const MISHAP:bool = true;
+const MISHAP_PROBABILITY:f64 = 0.9;
+const MISHAP_RADIUS:f64 = 30.0; //Must be larger than the range_x of the eviscerate boxes for there to be any change in operation
 //Transfer parameters
-const ages:[f64;2] = [4.0,20.0]; //Time hosts are expected spend in each region minimally
+const ages:[f64;1] = [10.0]; //Time hosts are expected spend in each region minimally
 //Collection
 const AGE_OF_HOSTCOLLECTION: f64 = 20.0*24.0;  //For instance if you were collecting hosts every 15 days
 const COLLECT_DEPOSITS: bool = true;
@@ -662,11 +801,11 @@ impl host{
         //We shall make it such that the host is spawned within the bottom left corner of each "restricted grid" - ie cage
         let prob:f64 = LISTOFPROBABILITIES[zone.clone()];
         //Add a random age generator
-        host{contaminated:false,infected:false,number_of_times_infected:0,time_infected:0.0,generation_time:gamma(ADJUSTED_TIME_TO_COLONIZE[0],ADJUSTED_TIME_TO_COLONIZE[1])*24.0,colonized:false,motile:0,zone:zone,prob1:prob,prob2:std,x:loc_x as f64,y:loc_y as f64,z:loc_z as f64,perched:false,eating:false,eat_x:0.0,eat_y:0.0,eating_time:0.0,age:normal_(MIN_AGE,MEAN_AGE,STD_AGE,MAX_AGE),time:0.0, origin_x:loc_x as u64,origin_y:loc_y as u64,origin_z: loc_z as u64,restrict:restriction,range_x:range_x,range_y:range_y,range_z:range_z}
+        host{eviscerated:false,contaminated:false,infected:false,number_of_times_infected:0,time_infected:0.0,generation_time:gamma(ADJUSTED_TIME_TO_COLONIZE[0],ADJUSTED_TIME_TO_COLONIZE[1])*24.0,colonized:false,motile:0,zone:zone,prob1:prob,prob2:std,x:loc_x as f64,y:loc_y as f64,z:loc_z as f64,perched:false,eating:false,eat_x:0.0,eat_y:0.0,eating_time:0.0,age:normal_(MIN_AGE,MEAN_AGE,STD_AGE,MAX_AGE),time:0.0, origin_x:loc_x as u64,origin_y:loc_y as u64,origin_z: loc_z as u64,restrict:restriction,range_x:range_x,range_y:range_y,range_z:range_z}
     }
     fn new_inf(zone:usize, std:f64,loc_x:f64, loc_y:f64,loc_z:f64,restriction:bool,range_x:u64,range_y:u64,range_z:u64)->host{ //presumably a newly infected host that spreads disease is colonized
         let prob:f64 = LISTOFPROBABILITIES[zone.clone()];
-        host{contaminated:false,infected:true,number_of_times_infected:0,time_infected:0.0,generation_time:gamma(ADJUSTED_TIME_TO_COLONIZE[0],ADJUSTED_TIME_TO_COLONIZE[1])*24.0,colonized:true,motile:0,zone:zone,prob1:prob,prob2:std,x:loc_x as f64,y:loc_y as f64,z:loc_z as f64,perched:false,eating:false,eat_x:0.0,eat_y:0.0,eating_time:0.0,age:normal_(MIN_AGE,MEAN_AGE,STD_AGE,MAX_AGE),time:0.0, origin_x:loc_x as u64,origin_y:loc_y as u64,origin_z: loc_z as u64,restrict:restriction,range_x:range_x,range_y:range_y,range_z:range_z}
+        host{eviscerated:false,contaminated:false,infected:true,number_of_times_infected:0,time_infected:0.0,generation_time:gamma(ADJUSTED_TIME_TO_COLONIZE[0],ADJUSTED_TIME_TO_COLONIZE[1])*24.0,colonized:true,motile:0,zone:zone,prob1:prob,prob2:std,x:loc_x as f64,y:loc_y as f64,z:loc_z as f64,perched:false,eating:false,eat_x:0.0,eat_y:0.0,eating_time:0.0,age:normal_(MIN_AGE,MEAN_AGE,STD_AGE,MAX_AGE),time:0.0, origin_x:loc_x as u64,origin_y:loc_y as u64,origin_z: loc_z as u64,restrict:restriction,range_x:range_x,range_y:range_y,range_z:range_z}
     }
     fn deposit(&mut self, consumable: bool)->host{ //Direct way to lay deposit from host. The function is 100% deterministic and layering a probability clause before this is typically expected
         let zone = self.zone.clone();
@@ -710,19 +849,19 @@ impl host{
                 self.x = x.clone();
                 self.y = y.clone();
             }
-            host{contaminated:inf,infected:inf,number_of_times_infected:0,time_infected:0.0,generation_time:self.generation_time,colonized:inf,motile:1,zone:zone,prob1:prob1,prob2:prob2,x:x,y:y,z:z,perched:false,eating:self.eating,eat_x:self.eat_x,eat_y:self.eat_y,eating_time:self.eating_time,age:0.0,time:0.0,origin_x:x as u64,origin_y:y as u64,origin_z:z as u64,restrict:restriction,range_x:range_x,range_y:range_y,range_z:range_z}
+            host{eviscerated:false,contaminated:inf,infected:inf,number_of_times_infected:0,time_infected:0.0,generation_time:self.generation_time,colonized:inf,motile:1,zone:zone,prob1:prob1,prob2:prob2,x:x,y:y,z:z,perched:false,eating:self.eating,eat_x:self.eat_x,eat_y:self.eat_y,eating_time:self.eating_time,age:0.0,time:0.0,origin_x:x as u64,origin_y:y as u64,origin_z:z as u64,restrict:restriction,range_x:range_x,range_y:range_y,range_z:range_z}
             //Returning new egg host to host vector
         }
         else{//fecal shedding
 
             // println!("Pooping!");
-            host{contaminated:inf,infected:inf,number_of_times_infected:0,time_infected:0.0,generation_time:self.generation_time,colonized:inf,motile:2,zone:zone,prob1:prob1,prob2:prob2,x:x,y:y,z:z,perched:false,eating:self.eating,eat_x:self.eat_x,eat_y:self.eat_y,eating_time:self.eating_time,age:0.0,time:0.0,origin_x:x as u64,origin_y:y as u64,origin_z:z as u64,restrict:restriction,range_x:range_x,range_y:range_y,range_z:range_z}
+            host{eviscerated:false,contaminated:inf,infected:inf,number_of_times_infected:0,time_infected:0.0,generation_time:self.generation_time,colonized:inf,motile:2,zone:zone,prob1:prob1,prob2:prob2,x:x,y:y,z:z,perched:false,eating:self.eating,eat_x:self.eat_x,eat_y:self.eat_y,eating_time:self.eating_time,age:0.0,time:0.0,origin_x:x as u64,origin_y:y as u64,origin_z:z as u64,restrict:restriction,range_x:range_x,range_y:range_y,range_z:range_z}
         }
     }
     fn deposit_all(vector:Vec<host>)->Vec<host>{
         //Below is an example whereby hosts deposit twice a day (fecal matter and laying eggs each once per day as an example)
         let mut vecc:Vec<host> = vector.clone();
-        let mut vecc_into: Vec<host> = vector.clone().into_par_iter().filter(|x| x.motile==0 && x.zone<=SLAUGHTER_POINT).collect::<Vec<_>>(); //With this re are RETAINING the hosts and deposits within the original vector
+        let mut vecc_into: Vec<host> = vector.clone().into_par_iter().filter(|x| x.motile==0 && x.zone<SLAUGHTER_POINT).collect::<Vec<_>>(); //With this re are RETAINING the hosts and deposits within the original vector
 
         //.map wasn't working so we brute forced a loop
         for ele in vecc_into{
@@ -847,7 +986,7 @@ impl host{
                     self.perched = false;
                 }
             }            
-            host{contaminated:self.contaminated,infected:self.infected,number_of_times_infected:0,time_infected:self.time_infected,generation_time:self.generation_time,colonized:self.colonized,motile:self.motile,zone:self.zone,prob1:self.prob1,prob2:self.prob2,x:new_x,y:new_y,z:self.z,perched:self.perched,eating:eating,eat_x:self.eat_x,eat_y:self.eat_y,eating_time:eating_time,age:self.age+1.0/HOUR_STEP,time:self.time+1.0/HOUR_STEP,origin_x:self.origin_x,origin_y:self.origin_y,origin_z:self.origin_z,restrict:self.restrict,range_x:self.range_x,range_y:self.range_y,range_z:self.range_z}
+            host{eviscerated:self.eviscerated,contaminated:self.contaminated,infected:self.infected,number_of_times_infected:0,time_infected:self.time_infected,generation_time:self.generation_time,colonized:self.colonized,motile:self.motile,zone:self.zone,prob1:self.prob1,prob2:self.prob2,x:new_x,y:new_y,z:self.z,perched:self.perched,eating:eating,eat_x:self.eat_x,eat_y:self.eat_y,eating_time:eating_time,age:self.age+1.0/HOUR_STEP,time:self.time+1.0/HOUR_STEP,origin_x:self.origin_x,origin_y:self.origin_y,origin_z:self.origin_z,restrict:self.restrict,range_x:self.range_x,range_y:self.range_y,range_z:self.range_z}
         }else if self.motile==0 && EVISCERATE && EVISCERATE_ZONES.contains(&self.zone) {
             // println!("Evisceration pending...");
             // self.motile == 1; //It should be presumably electrocuted and hung on a conveyer belt
@@ -1230,9 +1369,10 @@ fn main(){
 
     //MORE EFFICIENT WAY TO INFECT MORE hosts - insize zone 0
     let zone_to_infect:usize = 0;
-    hosts = host::infect_multiple(hosts,GRIDSIZE[zone_to_infect][0] as u64/2,GRIDSIZE[zone_to_infect][1] as u64/2,GRIDSIZE[zone_to_infect][2] as u64/2,HOST_0,0, true);
+    // hosts = host::infect_multiple(hosts,GRIDSIZE[zone_to_infect][0] as u64/2,GRIDSIZE[zone_to_infect][1] as u64/2,GRIDSIZE[zone_to_infect][2] as u64/2,HOST_0,0, true);
+    hosts = host::infect_multiple(hosts,0,GRIDSIZE[zone_to_infect][1] as u64/2,GRIDSIZE[zone_to_infect][2] as u64/2,HOST_0,0, true);
     // println!("Total number of hosts is {}", hosts.len());
-    for segment in &mut zones[0].segments {
+    // for segment in &mut zones[0].segments {
         // println!("Segment has coordinates {} {} {}", segment.origin_x, segment.origin_y, segment.origin_z);
         
         // if segment.origin_x % 8 == 0 {
@@ -1246,7 +1386,7 @@ fn main(){
         //         // println!("Laying impure at {} {} {}",segment.origin_x,segment.origin_y,segment.origin_z);
         //     }
         // }            
-    }
+    // }
     // let mut check:Vec<host> = hosts.clone();
     // check.retain(|x| x.infected);
     // println!("Total number of hosts is {} and total number of hosts infected is {}", hosts.len(),check.len());
