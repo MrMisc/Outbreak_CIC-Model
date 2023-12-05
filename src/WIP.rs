@@ -298,7 +298,7 @@ impl Zone_3D{
         vector.sort_by(|a,b| a.origin_x.cmp(&b.origin_x));
         let mut ind:Vec<usize> = Vec::new();
         //Range to be affected, with respect to each origin point
-        let mut revised_ind:Vec<[usize;2]> = Vec::new(); 
+        let mut revised_ind:Vec<[usize;4]> = Vec::new(); 
 
 
         if MISHAP && MISHAP_RADIUS>minimum_distance{
@@ -336,7 +336,7 @@ impl Zone_3D{
                 }
 
 
-                revised_ind.push([start_index, end_index]);
+                revised_ind.push([idx - idx%step_size,idx,start_index, end_index]);
                 // println!("{} {} {} {} {} {}",host.x,host.y,host.z,13,time,host.zone);
 
 
@@ -347,54 +347,98 @@ impl Zone_3D{
         // --------
         //Evisceration spread
         vector.sort_by(|a,b| a.origin_x.cmp(&b.origin_x));
+        // Create an iterator to loop over the vector in step_size chunks
+        let mut chunk_iter = vector.chunks_exact_mut(step_size);
+
+        // Initialize a counter to keep track of the global index
+        let mut global_index = 0;        
         let mut indices_to_infect: Vec<usize> = Vec::new();
-        for (j, host) in vector.iter_mut().enumerate() {
-            // Compare and update the elements in the larger vector
-            let mut eviscerator:&mut Eviscerator = evs[j%step_size];
-            if host.infected && host.zone == eviscerator.zone && !host.eviscerated{
-                eviscerator.infected = true;
-                // println!("EVISCERATOR HAS BEEN INFECTED AT TIME {} of this host stock entering zone!",host.time);
-                eviscerator.number_of_times_infected = 0;
-                println!("{} {} {} {} {} {}",host.x,host.y,host.z,12,time,host.zone);
-            }else if eviscerator.infected && host.zone == eviscerator.zone && !host.eviscerated{
-                // println!("Confirming that an eviscerator is infected in zone {}",eviscerator.zone);
-                host.infected = host.transfer(limits::max(0.0,1.0-(eviscerator.number_of_times_infected as f64)*EVISCERATOR_TO_HOST_PROBABILITY_DECAY));
-                eviscerator.number_of_times_infected += 1;
-                if host.infected{
-                    println!("{} {} {} {} {} {}",host.x,host.y,host.z,11,time,host.zone);
-                }
-            }
-            //Decay of infection
-            if eviscerator.number_of_times_infected>=EVISCERATE_DECAY{
-                eviscerator.infected = false;
-            }
-            host.eviscerated = true;
-            if MISHAP && host.infected && ind.contains(&j) && MISHAP_RADIUS>minimum_distance && roll(MISHAP_PROBABILITY){
-                println!("OOOLALALLAH");
-                let spread_distance_before = 3;
-                let spread_distance_after = 2;
-                for spread_index in (j.saturating_sub(spread_distance_before)..j).rev() {
-                    if let Some(host_to_infect) = vector.get_mut(spread_index) {
-                        // Apply infection to the host before 'j'
-                        // Modify 'host_to_infect' as needed based on 'host' or 'eviscerator'
-                        // For example:
-                        // host_to_infect.infected = true;
+        // if let Some(first_chunk) = chunk_iter.next() {
+        //     //just an example of a wayt o access the first element per chunk
+        //     if let Some(first_element) = first_chunk.first_mut(){
+
+        //     }
+        // }
+        for chunk in chunk_iter{
+            let mut start:Vec<usize> = Vec::new();
+            let mut end:Vec<usize> = Vec::new();
+            let mut trigger:Vec<usize> = Vec::new();
+            let mut fail:bool = true;
+            let matched_arrays: Vec<&[usize; 4]> = revised_ind
+            .iter()
+            .filter(|array| MISHAP && evs[array[1]%step_size].infected && roll(MISHAP_PROBABILITY) && roll(1.0-(evs[array[1]%step_size].number_of_times_infected as f64)*EVISCERATOR_TO_HOST_PROBABILITY_DECAY) && array[0] == global_index)
+            .collect();
+    
+            // Extract the third index from each matched array and collect into matched_indices
+            for matched_array in matched_arrays {
+                trigger.push(matched_array[1]);
+                start.push(matched_array[2]);
+                end.push(matched_array[3]);
+            }       
+
+
+
+            let start:usize = match start.iter().min(){
+                Some(x) => *x,
+                _ => 1000
+            };
+            let end:usize = match end.iter().max(){
+                Some(x) => *x,
+                _ => 1000
+            };
+
+            fail = start == 1000 && end == 1000;
+            
+
+            for (j_ele, host) in chunk.iter_mut().enumerate()  {
+                let j = global_index + j_ele;
+                // Compare and update the elements in the larger vector
+                if j >= start && j <= end && !fail {
+                    //THIS SECTION HERE IS WHERE THE MISHAP explosions are applied RIGHT BEFORE the eviscerators 
+                    host.infected = true;
+                    println!("{} {} {} {} {} {}",host.x,host.y,host.z,13,time,host.zone);
+                }                
+                let mut eviscerator:&mut Eviscerator = evs[j%step_size];
+                if host.infected && host.zone == eviscerator.zone && !host.eviscerated{
+                    eviscerator.infected = true;
+                    // println!("EVISCERATOR HAS BEEN INFECTED AT TIME {} of this host stock entering zone!",host.time);
+                    eviscerator.number_of_times_infected = 0;
+                    println!("{} {} {} {} {} {}",host.x,host.y,host.z,12,time,host.zone);
+                }else if eviscerator.infected && host.zone == eviscerator.zone && !host.eviscerated{
+                    // println!("Confirming that an eviscerator is infected in zone {}",eviscerator.zone);
+                    host.infected = host.transfer(limits::max(0.0,1.0-(eviscerator.number_of_times_infected as f64)*EVISCERATOR_TO_HOST_PROBABILITY_DECAY));
+                    eviscerator.number_of_times_infected += 1;
+                    if host.infected{
+                        println!("{} {} {} {} {} {}",host.x,host.y,host.z,11,time,host.zone);
                     }
                 }
-        
-                // Spread infection to hosts after 'j'
-                for spread_index in (j + 1..=j + spread_distance_after).take_while(|&index| index < vector.len()) {
-                    if let Some(host_to_infect) = vector.get_mut(spread_index) {
-                        // Apply infection to the host after 'j'
-                        // Modify 'host_to_infect' as needed based on 'host' or 'eviscerator'
-                        // For example:
-                        // host_to_infect.infected = true;
-                    }
-                }    
-                
-                
+                //Decay of infection
+                if eviscerator.number_of_times_infected>=EVISCERATE_DECAY{
+                    eviscerator.infected = false;
+                }
+                host.eviscerated = true;
+                // if MISHAP && host.infected && ind.contains(&j) && MISHAP_RADIUS>minimum_distance && roll(MISHAP_PROBABILITY){
+                // }
             }
+            global_index += step_size;
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     }    
 }
 
@@ -532,7 +576,7 @@ const PI:f64 = std::f64::consts::PI;
 const ANGLE_MAXIMA:f64 = 0.75*PI; //Maximum angular displacement, above which, mishaps cannot travel anyway
 //Evisceration -------------> Mishap/Explosion parameters
 const MISHAP:bool = true;
-const MISHAP_PROBABILITY:f64 = 0.8;
+const MISHAP_PROBABILITY:f64 = 0.9;
 const MISHAP_RADIUS:f64 = 30.0; //Must be larger than the range_x of the eviscerate boxes for there to be any change in operation
 //Transfer parameters
 const ages:[f64;1] = [10.0]; //Time hosts are expected spend in each region minimally
