@@ -257,7 +257,7 @@ impl Zone_3D{
         }
     }
     fn eviscerate(&mut self,eviscerators:&mut Vec<Eviscerator>, vector1:&mut Vec<host>,time:usize){
-        let mut vector: Vec<&mut host> = vector1.iter_mut().filter(|host| !host.eviscerated).collect();
+        let mut vector: Vec<&mut host> = vector1.iter_mut().filter(|host| !host.eviscerated && host.zone == self.zone).collect();
         let vector_length:usize = vector.len();
         //Filter out eviscerators that are for the zone in particular
         let mut evs: Vec<&mut Eviscerator> = eviscerators.iter_mut().filter(|ev| ev.zone == self.zone).collect();
@@ -475,12 +475,12 @@ pub struct host{
 }
 //Note that if you want to adjust the number of zones, you have to, in addition to adjusting the individual values to your liking per zone, also need to change the slice types below!
 //Resolution
-const STEP:[[usize;3];1] = [[10,10,10]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
+const STEP:[[usize;3];2] = [[20,20,4],[10,10,10]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
 const HOUR_STEP: f64 = 4.0; //Number of times hosts move per hour
-const LENGTH: usize =12; //How long do you want the simulation to be?
+const LENGTH: usize =33; //How long do you want the simulation to be?
 //Infection/Colonization module
 // ------------Do only colonized hosts spread disease or do infected hosts spread
-const HOST_0:usize = 10;
+const HOST_0:usize = 20*200;
 const COLONIZATION_SPREAD_MODEL:bool = true;
 const TIME_OR_CONTACT:bool = true; //true for time -> contact uses number of times infected to determine colonization
 const IMMORTAL_CONTAMINATION:bool = false;
@@ -506,16 +506,16 @@ const EGGTOFAECES_CONTACT_SPREAD:bool = true;
 const FAECESTOEGG_CONTACT_SPREAD:bool = true;
 // const INITIAL_COLONIZATION_RATE:f64 = 0.47; //Probability of infection, resulting in colonization -> DAILY RATE ie PER DAY
 //Space
-const LISTOFPROBABILITIES:[f64;1] = [0.8]; //Probability of transfer of disease per zone - starting from zone 0 onwards
-const CONTACT_TRANSMISSION_PROBABILITY:[f64;1] = [0.8];
-const GRIDSIZE:[[f64;3];1] = [[1000.0,10.0,10.0]];
+const LISTOFPROBABILITIES:[f64;2] = [0.9,0.9]; //Probability of transfer of disease per zone - starting from zone 0 onwards
+const CONTACT_TRANSMISSION_PROBABILITY:[f64;2] = [1.0,1.0];
+const GRIDSIZE:[[f64;3];2] = [[2000.0,2000.0,8.0],[100000.0,10.0,10.0]];
 const MAX_MOVE:f64 = 10.0;
 const MEAN_MOVE:f64 = 4.0;
 const STD_MOVE:f64 = 3.0; // separate movements for Z config
 const MAX_MOVE_Z:f64 = 1.0;
 const MEAN_MOVE_Z:f64 = 2.0;
 const STD_MOVE_Z:f64 = 4.0;
-const NO_OF_HOSTS_PER_SEGMENT:[u64;1] = [1];
+const NO_OF_HOSTS_PER_SEGMENT:[u64;2] = [1,1];
 //Anchor points
 //Vertical perches
 const PERCH:bool = false;
@@ -527,7 +527,7 @@ const DEPERCH_FREQ:f64 = 0.4; //probability that a host when already on perch, d
 const NEST:bool = false;
 const NESTING_AREA:f64 = 0.25; //ratio of the total area of segment in of which nesting area is designated - min x y z side
 //Space --- Segment ID
-const TRANSFERS_ONLY_WITHIN:[bool;2] = [false,false]; //Boolean that informs simulation to only allow transmissions to occur WITHIN segments, not between adjacent segments
+const TRANSFERS_ONLY_WITHIN:[bool;2] = [true,false]; //Boolean that informs simulation to only allow transmissions to occur WITHIN segments, not between adjacent segments
 //Fly option
 const FLY:bool = false;
 const FLY_FREQ:u8 = 3; //At which Hour step do the  
@@ -535,7 +535,6 @@ const FLY_FREQ:u8 = 3; //At which Hour step do the
 const TRANSFER_DISTANCE: f64 = 1.0;//maximum distance over which hosts can trasmit diseases to one another
 const SIZE_FACTOR_FOR_EGGS:f64 = 0.15; //eggs are significantly smaller than their original hosts, so it stands to reason that their transfer distance for contact spread should be smaller
 //Host parameters
-const PROBABILITY_OF_INFECTION:f64 = 0.12; //probability of imported host being infected
 const MEAN_AGE:f64 = 17.0*7.0*24.0; //Mean age of hosts imported (IN HOURS)
 const STD_AGE:f64 = 3.0*24.0;//Standard deviation of host age (when using normal distribution)
 const MAX_AGE:f64 = 20.0*7.0*24.0; //Maximum age of host accepted (Note: as of now, minimum age is 0.0)
@@ -564,7 +563,7 @@ const SLAUGHTER_POINT:usize = 0; //Somewhere in zone {}, the hosts are slaughter
 //Evisceration parameters
 //We assume that all hosts are isolated from the rest of the hosts in the zone per evisceration "unit"
 const EVISCERATE:bool = true;
-const EVISCERATE_ZONES:[usize;1] = [0]; //Zone in which evisceration takes place
+const EVISCERATE_ZONES:[usize;1] = [1]; //Zone in which evisceration takes place
 const EVISCERATE_DECAY:u8 = 5;
 const NO_OF_EVISCERATORS:[usize;1] = [6];
 const EVISCERATOR_TO_HOST_PROBABILITY_DECAY:f64 = 0.25;   //Multiplicative decrease of  probability - starting from LISTOFPROBABILITIES value 100%->75% (if 0.25 is value)->50% ->25%->0%
@@ -576,10 +575,10 @@ const PI:f64 = std::f64::consts::PI;
 const ANGLE_MAXIMA:f64 = 0.75*PI; //Maximum angular displacement, above which, mishaps cannot travel anyway
 //Evisceration -------------> Mishap/Explosion parameters
 const MISHAP:bool = true;
-const MISHAP_PROBABILITY:f64 = 0.9;
+const MISHAP_PROBABILITY:f64 = 0.3;
 const MISHAP_RADIUS:f64 = 30.0; //Must be larger than the range_x of the eviscerate boxes for there to be any change in operation
 //Transfer parameters
-const ages:[f64;1] = [10.0]; //Time hosts are expected spend in each region minimally
+const ages:[f64;2] = [1.0,2.0]; //Time hosts are expected spend in each region minimally
 //Collection
 const AGE_OF_HOSTCOLLECTION: f64 = 20.0*24.0;  //For instance if you were collecting hosts every 15 days
 const COLLECT_DEPOSITS: bool = true;
@@ -589,12 +588,13 @@ const FAECAL_CLEANUP_FREQUENCY:usize = 2; //How many times a day do you want fae
 const TIME_OF_COLLECTION :f64 = 200.0; //Time that the host has spent in the last zone from which you collect ONLY. NOT THE TOTAL TIME SPENT IN SIMULATION
 //Influx? Do you want new hosts being fed into the scenario everytime the first zone exports some to the succeeding zones?
 const INFLUX:bool = false;
-const PERIOD_OF_INFLUX:u8 = 24; //How many hours before new batch of hosts are imported?
-const PERIOD_OF_TRANSPORT:u8 = 1; //Prompt to transport hosts between zones every hour (checking that they fulfill ages requirement of course)
+const PERIOD_OF_INFLUX:u8 = 2; //How many hours before new batch of hosts are imported?
+const PERIOD_OF_TRANSPORT:u8 = 1; 
+const PROBABILITY_OF_INFECTION:f64 = 0.01; //probability of imported host being infected
 //Restriction?
 const RESTRICTION:bool = true;
 //Generation Parameters
-const SPORADICITY:f64 = 4.0; //How many fractions of the dimension of the cage/segment do you want the hosts to start at? Bigger number makes the spread of hosts starting point more even per seg
+const SPORADICITY:f64 = 1000.0; //How many fractions of the dimension of the cage/segment do you want the hosts to start at? Bigger number makes the spread of hosts LESS : starting points end up being centered
 
 
 //Additional 3D parameters
@@ -719,12 +719,14 @@ impl host{
     }    
     fn transport(mut vector:&mut Vec<host>,space:&mut Vec<Zone_3D>, influx: bool){ //Also to change ;size if you change number of zones
         let mut output:Vec<host> = Vec::new();
+        // println!("Influx is set to {}", influx);
+        // println!("Capacity for zone 0 is {}",space[0].capacity);
         for zone in (0..space.len()).rev(){
             // let mut __:u32 = space.clone()[zone].capacity;
             if &space[zone].capacity>&0 && zone>0{ //If succeeding zones (obviously zone 0 doesn't have do to this - that needs to be done with a replace mechanism)
                 // let zone_toedit:&mut Zone_3D = &mut space[zone];
                 vector.iter_mut().for_each(|mut x| {
-                    if x.zone == zone-1 && x.time>ages[zone-1]&& x.motile == 0 && space[zone].capacity>0{ //Hosts in previous zone that have spent enough time spent in previous zone
+                    if x.zone == zone-1 && x.time>ages[zone-1]&& x.motile == 0 && space[zone].capacity>0 && (( !EVISCERATE || EVISCERATE_ZONES.contains(&x.zone) == false) || EVISCERATE &&  EVISCERATE_ZONES.contains(&x.zone) && x.eviscerated) { //Hosts in previous zone that have spent enough time spent in previous zone
                         //Find the first available segment
                         // println!("Transporting...");
                         // println!("Current szone")
@@ -770,6 +772,7 @@ impl host{
             }
             else if zone == 0 && space[zone].capacity>0 && influx{ //replace mechanism : influx is determined by INFLUX and PERIOD OF INLFUX 
                 // let mut zone_0:&mut Zone = &mut space[0];
+                // println!("Importing");
                 for _ in 0..space[zone].clone().capacity as usize{
                     // let [x,y]:[u64;2] = space[zone].add();
                     //Roll probability
@@ -920,7 +923,7 @@ impl host{
         }else if COLONIZATION_SPREAD_MODEL && !TIME_OR_CONTACT && self.number_of_times_infected>NO_TO_COLONIZE && self.infected && self.motile == 0{
             self.colonized = true;
         }
-        if self.motile==0 && !EVISCERATE && EVISCERATE_ZONES.contains(&self.zone) == false{ // NOT IN EVISCERATION
+        if self.motile==0 &&( !EVISCERATE || EVISCERATE_ZONES.contains(&self.zone) == false) && !self.eviscerated{ // NOT IN EVISCERATION
             //Whether the movement is negative or positive
             let mut mult:[f64;3] = [0.0,0.0,0.0];
             for index in 0..mult.len(){
@@ -1209,6 +1212,7 @@ impl host{
         let vec1:Vec<host> = inventory.into_iter().filter_map(|mut x| {
             // println!("host in zone {}",x.zone);
             // println!("GRIDSIZE - 1 is {} ",GRIDSIZE.len()-1);
+            // let is_evisceration_checked_at_final_zone:bool =  !EVISCERATE || EVISCERATE_ZONES.contains(&x.zone) == false || (EVISCERATE &&  EVISCERATE_ZONES.contains(&x.zone) && x.eviscerated);
             if x.motile==0 && x.time>ages[ages.len()-1] && x.zone == GRIDSIZE.len()-1{
                 // println!("Collecting host(s)...{} days old",x.age/24.0);
                 zone.subtract(x.origin_x,x.origin_y,x.origin_z);
@@ -1226,20 +1230,24 @@ impl host{
         }).collect();
         [vec1,collection]  //collection vector here to be added and pushed into the original collection vector from the start of the loop! This function merely outputs what should be ADDED to collection!
     }    
-    fn collect_and_replace(inventory:Vec<host>)->[Vec<host>;2]{   //same as collect but HOSTS GET REPLACED (with a Poisson rate of choosing) - note that this imports hosts, doesn't transfer from earlier zone
+    fn collect_and_replace(inventory:Vec<host>,zone:&mut Zone_3D)->[Vec<host>;2]{   //same as collect but HOSTS GET REPLACED (with a Poisson rate of choosing) - note that this imports hosts, doesn't transfer from earlier zone
         let mut collection:Vec<host> = Vec::new();
         let vec1:Vec<host> = inventory.into_iter().filter_map(|mut x| {
-            if x.motile==0 && x.age>AGE_OF_HOSTCOLLECTION&& x.zone == GRIDSIZE.len()-1{
+            if x.motile==0 &&  x.time>ages[ages.len()-1] && x.zone == GRIDSIZE.len()-1{
+                // println!("Zone {} capacity (before): {}",zone.zone,zone.capacity);
                 // println!("Collecting host(s)...{} days old",x.age/24.0);
+                zone.subtract(x.origin_x,x.origin_y,x.origin_z);
+                zone.capacity+=1;
+                // println!("Zone {} capacity (after): {}",zone.zone,zone.capacity);
                 collection.push(x.clone());
                 // None
                 let mut rng = thread_rng();
                 let roll = Uniform::new(0.0, 1.0);
                 let rollnumber: f64 = rng.sample(roll);
                 if rollnumber<PROBABILITY_OF_INFECTION{
-                    Some(host{contaminated:false,infected:true,age:normal_(MIN_AGE,MEAN_AGE,STD_AGE,MAX_AGE),time:0.0,..x})
+                    Some(host{contaminated:false,infected:true,age:normal_(MIN_AGE,MEAN_AGE,STD_AGE,MAX_AGE),time:0.0,eviscerated:false,..x})
                 }else{
-                    Some(host{contaminated:false,infected:false,age:normal_(MIN_AGE,MEAN_AGE,STD_AGE,MAX_AGE),time:0.0,..x})
+                    Some(host{contaminated:false,infected:false,age:normal_(MIN_AGE,MEAN_AGE,STD_AGE,MAX_AGE),time:0.0,eviscerated:false,..x})
                 }
             }else if x.motile == 1 && x.age>AGE_OF_DEPOSITCOLLECTION{
                 // println!("Collecting deposit(s)...");
@@ -1336,7 +1344,7 @@ fn main(){
     let mut zones:Vec<Zone_3D> = Vec::new();
 
     //Influx parameter
-    let mut influx:bool = false;
+    let mut influx:bool = INFLUX;
     //Generate eviscerators
     let mut eviscerators:Vec<Eviscerator> = Vec::new();
     if EVISCERATE{
@@ -1369,8 +1377,16 @@ fn main(){
 
     //MORE EFFICIENT WAY TO INFECT MORE hosts - insize zone 0
     let zone_to_infect:usize = 0;
+    // ---- Generating all patient 0s in the center radially
     // hosts = host::infect_multiple(hosts,GRIDSIZE[zone_to_infect][0] as u64/2,GRIDSIZE[zone_to_infect][1] as u64/2,GRIDSIZE[zone_to_infect][2] as u64/2,HOST_0,0, true);
-    hosts = host::infect_multiple(hosts,0,GRIDSIZE[zone_to_infect][1] as u64/2,GRIDSIZE[zone_to_infect][2] as u64/2,HOST_0,0, true);
+    // ---- Generating all patient 0s at x = 0 
+    // hosts = host::infect_multiple(hosts,0,GRIDSIZE[zone_to_infect][1] as u64/2,GRIDSIZE[zone_to_infect][2] as u64/2,HOST_0,0, true);
+    //----- Generate randomly throughout starting space
+    for _ in 0..HOST_0{
+        // Use infect multiple to infect 1 host at a time inside the grid/zone and you can randomly choose the location - here as a uniform distribution 
+        hosts = host::infect_multiple(hosts,uniform(0.0,GRIDSIZE[zone_to_infect][0]) as u64,uniform(0.0,GRIDSIZE[zone_to_infect][1]) as u64,uniform(0.0,GRIDSIZE[zone_to_infect][2])as u64,1,0,true);
+    }
+
     // println!("Total number of hosts is {}", hosts.len());
     // for segment in &mut zones[0].segments {
         // println!("Segment has coordinates {} {} {}", segment.origin_x, segment.origin_y, segment.origin_z);
@@ -1433,10 +1449,12 @@ fn main(){
                 }
             }
         }
+
         if EVISCERATE{
             for zone in EVISCERATE_ZONES{
                 // println!("Evisceration occurring at zone {}",zone);
                 zones[zone].eviscerate(&mut eviscerators,&mut hosts,time.clone());
+                // println!("{} hosts have been eviscerated and infected so far",hosts.clone().into_iter().filter(|x| x.eviscerated && x.infected).collect::<Vec<_>>().len() as u64);
             }
         }
         let mut FinalZone:&mut Zone_3D = &mut zones[GRIDSIZE.len()-1];
