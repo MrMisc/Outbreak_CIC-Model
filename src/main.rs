@@ -20,7 +20,6 @@ use std::io::Write;
 // use std::time::{Duration, Instant};
 use std::{fs, io, process};
 // use std::error::Error;
-
 use csv::Writer;
 
 
@@ -142,20 +141,6 @@ impl Segment_3D{
         if n<self.capacity{
             self.capacity-=n;
         }
-        // if nig>self.capacity{
-        //     nig = self.capacity;
-        // }
-        // let new_segment = Segment_3D {
-        //     zone: self.zone,
-        //     origin_x: self.origin_x,
-        //     origin_y: self.origin_y,
-        //     origin_z: self.origin_z,
-        //     range_x: self.range_x,
-        //     range_y: self.range_y,
-        //     range_z: self.range_z,
-        //     capacity: self.capacity-nig,
-        //     eviscerated: self.eviscerated,
-        // };        
         if !infected{hosts.push(host::new(self.zone,CONTACT_TRANSMISSION_PROBABILITY[self.zone],self.origin_x as f64,self.origin_y as f64,self.origin_z as f64,RESTRICTION,self.range_x,self.range_y,self.range_z));}
         else{
             let mut host_to_add:host = host::new_inf(self.zone,CONTACT_TRANSMISSION_PROBABILITY[self.zone],self.origin_x as f64,self.origin_y as f64,self.origin_z as f64,RESTRICTION,self.range_x,self.range_y,self.range_z);
@@ -257,8 +242,16 @@ impl Zone_3D{
         }
     }
     fn eviscerate(&mut self,eviscerators:&mut Vec<Eviscerator>, vector1:&mut Vec<host>,time:usize){
-        let mut vector: Vec<&mut host> = vector1.iter_mut().filter(|host| !host.eviscerated && host.zone == self.zone).collect();
+        let mut vector: Vec<&mut host> = vector1.iter_mut().filter(|host| !host.eviscerated && host.zone == self.zone && host.motile == 0).collect();
         let vector_length:usize = vector.len();
+
+        let no_infected : usize = vector.iter().filter(|&x| {
+            x.infected
+        }).collect::<Vec<_>>().len();
+        let no_not_infected : usize = vector.iter().filter(|&x| {
+            !x.infected
+        }).collect::<Vec<_>>().len();
+        // println!("[BEFORE] : {} of {} hosts in this evisceration process, at zone {} are not-infected, while {} are infected",no_not_infected,vector_length,self.zone, no_infected);
         //Filter out eviscerators that are for the zone in particular
         let mut evs: Vec<&mut Eviscerator> = eviscerators.iter_mut().filter(|ev| ev.zone == self.zone).collect();
         // Define the step size for comparison
@@ -285,65 +278,81 @@ impl Zone_3D{
         //Create a variable that denotes the number of indices/segment units as spaces
         let mut index_spacing:usize = 0;
         //If we are dealing with a simple straight configuration...
-        if !CURVATURE{index_spacing = (MISHAP_RADIUS as u64/ self.segments[0].range_x) as usize;}   
+        // println!("Calculating index spacing with MISHAP RADIUS: {}, and segmental spacing being {}", MISHAP_RADIUS,self.segments[0].range_x);
+        index_spacing = (MISHAP_RADIUS as u64/ self.segments[0].range_x) as usize;
+        // println!("So index spacing being calculated ends up being {}",index_spacing);
         //Indices of all hosts that undergo MISHAP is inside list of indices ind
         //Note that in CURVATURE model, if the stations are positioned adequately away angularly, there may very well be blockage from that angle -> shielding from MISHAP
         //We use a user defined variable -> ANGLE MAXIMA to denote the maximum angualr displacement under which MISHAPS can be spread
-        let mut no:usize = 0;
-        if CURVATURE && ANGLE_MAXIMA<PI{
-            no = ((ANGLE_MAXIMA/angle) as u64) as usize;
-            if no<index_spacing{index_spacing = no.clone();}
+        // let mut no:usize = 0;
+        if CURVATURE{
+            // println!("angle is {}", angle);
+            // println!("While ANGLE_MAXIMA (the numerator) is {}", ANGLE_MAXIMA);
+            //In curvature terms, we limit it using ANGLE MAZXIMA
+            // println!("ANGLE MAXIMA IS {} while angle is {}", ANGLE_MAXIMA, angle);
+            let mut angle_spacing:usize = 0;
+            if ANGLE_MAXIMA<=PI{angle_spacing = ((ANGLE_MAXIMA/angle) as u64) as usize;}
+            else{angle_spacing = ((PI/angle) as u64) as usize;}
+            if index_spacing>angle_spacing{index_spacing = angle_spacing;}
+            // println!("As a result, index spacing has been changed to {}", index_spacing);
+            // panic!("Checking angles");
+            // index_spacing = no.clone();
         }   
-        
-        vector.sort_by(|a,b| a.origin_x.cmp(&b.origin_x));
+        // println!("[POST CURVATURE ADJUSTMENT] So index spacing being calculated ends up being {}",index_spacing);
+
         let mut ind:Vec<usize> = Vec::new();
         //Range to be affected, with respect to each origin point
         let mut revised_ind:Vec<[usize;4]> = Vec::new(); 
 
-
         if MISHAP && MISHAP_RADIUS>minimum_distance{
 
-            //Sort segments by their origin_x position since in evisceration zone, we practice one layer eviscertation
-            
-            //Looking at the hosts as an array of indices, we create the following
-            //Vector of origin points for mishap explosions
-
             vector.iter_mut().enumerate().for_each(|(idx,mut host)| {
-                if host.infected && roll(MISHAP_PROBABILITY) && !host.eviscerated{
+                if host.infected && roll(MISHAP_PROBABILITY){
+                    //Assume that only a previously infected host that has been brought to the evisceration process exploding, can pose a threat of  spreading the infection -> a fresh uninfected chicken that has been simultaneously infected and exploded
+                    //by the probe, should not intuitively count as a mishap infection event
                     ind.push(idx);
                 }
             });
-
+            vector.sort_by(|a,b| a.origin_x.cmp(&b.origin_x));
             for &idx in &ind{
+                //THERE IS SOMETHING WRONG WITH HOW INDICES ARE DETEREMINED HERE
                 //Criteria for determining start and end index of affected hosts by the mishap explosion
                 //pre-emptively calculate it ot be within the bounds of vector
+
+                //NOTE idx should be the vector wide index number, NOT the relative index number within  each set of eviscerators
+                // println!("INDEX IS {}",idx);
+                let internal_index:usize = idx%step_size;
                 let mut minima:usize = idx - idx%step_size;
                 let mut maxima:usize = idx - idx%step_size+step_size;
-                if minima<0{minima = 0;}
+                // if minima<0{minima = 0;}
                 if maxima>vector.len(){maxima = vector.len();}
-                let mut start_index = if idx >= index_spacing {idx-index_spacing}else{minima};
-                let mut end_index = std::cmp::min(idx+index_spacing+1,maxima);
+                //Remember that index spacing is the maximum number of indices that the index movement can happen
+                //So let us simplify matters whereby we consider RELATIVE INDICES WITHIN EACH SET OF EVISCERATORS NOT the actual index -> internal_index (range being [0,step_size])
+                // println!("Starting relative index is {}, while index spacing calculated is {}",internal_index, index_spacing);
+                let mut start_index = if internal_index >= index_spacing {internal_index-index_spacing}else{0};
+                let mut end_index = std::cmp::min(internal_index+index_spacing,step_size);
+                // println!("[INITIAL] Start and End indices of {} and {} respectively",start_index,end_index);
                 if CURVATURE{
+                    // println!("Conducting CURVATURE PROCEDURE");
                     //Curvature has a tendency to compress distances together, not lengthen. In other words, we can simply check to see if the remaining excluded stations are within range now
                     //Edit start_index -> See if extendable
-                    while start_index > minima && radialise(((idx - start_index) as f64/(step_size as f64) * PI), (((idx - start_index) as u64)*self.segments[0].range_x) as f64, MISHAP_RADIUS) {
+                    while start_index > 0 && radialise(((internal_index - start_index) as f64/(step_size as f64) * PI), (((internal_index - start_index) as u64)*self.segments[0].range_x) as f64, MISHAP_RADIUS) {
                         start_index -= 1;
                     }
                     // Increase end_index if extendable
-                    while end_index < maxima && radialise(((end_index -idx) as f64/(step_size as f64) * PI), (((end_index -idx) as u64)*self.segments[0].range_x) as f64, MISHAP_RADIUS)  {
+                    while end_index < step_size && radialise(((end_index -internal_index) as f64/(step_size as f64) * PI), (((end_index -internal_index) as u64)*self.segments[0].range_x) as f64, MISHAP_RADIUS)  {
                         end_index += 1;
                     }
                 }
 
 
                 revised_ind.push([idx - idx%step_size,idx,start_index, end_index]);
+                // println!("Start and End indices of {} and {} respectively",start_index,end_index);
                 // println!("{} {} {} {} {} {}",host.x,host.y,host.z,13,time,host.zone);
-
-
-
             }            
+            // if ind.len() >= 2{panic!("Finished calculating indices!");}
         }
-
+        
         // --------
         //Evisceration spread
         vector.sort_by(|a,b| a.origin_x.cmp(&b.origin_x));
@@ -366,7 +375,8 @@ impl Zone_3D{
             let mut fail:bool = true;
             let matched_arrays: Vec<&[usize; 4]> = revised_ind
             .iter()
-            .filter(|array| MISHAP && evs[array[1]%step_size].infected && roll(MISHAP_PROBABILITY) && roll(1.0-(evs[array[1]%step_size].number_of_times_infected as f64)*EVISCERATOR_TO_HOST_PROBABILITY_DECAY) && array[0] == global_index)
+            // .filter(|array| MISHAP && evs[array[1]%step_size].infected && roll(MISHAP_PROBABILITY) && roll(1.0-(evs[array[1]%step_size].number_of_times_infected as f64)*EVISCERATOR_TO_HOST_PROBABILITY_DECAY) && array[0] == global_index)
+            .filter(|array| array[0] == global_index)
             .collect();
     
             // Extract the third index from each matched array and collect into matched_indices
@@ -392,10 +402,11 @@ impl Zone_3D{
 
             for (j_ele, host) in chunk.iter_mut().enumerate()  {
                 let j = global_index + j_ele;
-                // Compare and update the elements in the larger vector
-                if j >= start && j <= end && !fail {
+                // Compare and update the elements in the relative vector of eviscerators length
+                if j_ele >= start && j_ele <= end && !fail {
                     //THIS SECTION HERE IS WHERE THE MISHAP explosions are applied RIGHT BEFORE the eviscerators 
                     host.infected = true;
+                    host.contaminated = true;
                     println!("{} {} {} {} {} {}",host.x,host.y,host.z,13,time,host.zone);
                 }                
                 let mut eviscerator:&mut Eviscerator = evs[j%step_size];
@@ -406,7 +417,8 @@ impl Zone_3D{
                     println!("{} {} {} {} {} {}",host.x,host.y,host.z,12,time,host.zone);
                 }else if eviscerator.infected && host.zone == eviscerator.zone && !host.eviscerated{
                     // println!("Confirming that an eviscerator is infected in zone {}",eviscerator.zone);
-                    host.infected = host.transfer(limits::max(0.0,1.0-(eviscerator.number_of_times_infected as f64)*EVISCERATOR_TO_HOST_PROBABILITY_DECAY));
+                    host.infected = host.transfer(limits::max(0.0,1.0-(eviscerator.number_of_times_infected as f64)*EVISCERATOR_TO_HOST_PROBABILITY_DECAY)) || host.infected;
+                    host.contaminated = host.infected || host.contaminated; //In evisceration process, an eviscerator infecting a chicken is equivalent to contaminating as well simultaneously!
                     eviscerator.number_of_times_infected += 1;
                     if host.infected{
                         println!("{} {} {} {} {} {}",host.x,host.y,host.z,11,time,host.zone);
@@ -424,17 +436,7 @@ impl Zone_3D{
         }
 
 
-
-
-
-
-
-
-
-
-
-
-
+        // println!("[AFTER] : {} of {} hosts in this evisceration process, at zone {} are not-infected, while {} are infected",no_not_infected,vector_length,self.zone, no_infected);
 
 
 
@@ -565,18 +567,18 @@ const SLAUGHTER_POINT:usize = 0; //Somewhere in zone {}, the hosts are slaughter
 const EVISCERATE:bool = true;
 const EVISCERATE_ZONES:[usize;1] = [1]; //Zone in which evisceration takes place
 const EVISCERATE_DECAY:u8 = 5;
-const NO_OF_EVISCERATORS:[usize;1] = [6];
+const NO_OF_EVISCERATORS:[usize;1] = [20];
 const EVISCERATOR_TO_HOST_PROBABILITY_DECAY:f64 = 0.25;   //Multiplicative decrease of  probability - starting from LISTOFPROBABILITIES value 100%->75% (if 0.25 is value)->50% ->25%->0%
 
 const CURVATURE:bool = true;
 //We are assuming that when eviscerators are brought into a circle, the distance between them is maintained - inevitably determining the radius of the curvature
 //In other words, we are assuming that all the eviscerator probes fit within a semicircle, and that there is no extension of this range of eviscerators
 const PI:f64 = std::f64::consts::PI;
-const ANGLE_MAXIMA:f64 = 0.75*PI; //Maximum angular displacement, above which, mishaps cannot travel anyway
+const ANGLE_MAXIMA:f64 = 0.15*PI; //Maximum angular displacement, above which, mishaps cannot travel anyway
 //Evisceration -------------> Mishap/Explosion parameters
 const MISHAP:bool = true;
 const MISHAP_PROBABILITY:f64 = 0.3;
-const MISHAP_RADIUS:f64 = 30.0; //Must be larger than the range_x of the eviscerate boxes for there to be any change in operation
+const MISHAP_RADIUS:f64 = 1001.0; //Must be larger than the range_x of the eviscerate boxes for there to be any change in operation
 //Transfer parameters
 const ages:[f64;2] = [1.0,2.0]; //Time hosts are expected spend in each region minimally
 //Collection
