@@ -23,6 +23,7 @@ library(pandoc)
 library(plotly)
 library(echarts4r)
 library(echarts4r.assets)
+# library(echarty)
 library("ggplot2")
 library("plotly")
 library("breakDown")
@@ -152,7 +153,8 @@ data <- data.frame(x = x, y = y, z = altitude,interaction = factor(interaction),
 zone_unique2 <- unique(zone)
 print("ZONES being used...")
 print(zone_unique2)
-
+minimum<-min(data$time)
+maximum<-max(data$time)
 for (separate_zone in zone_unique2){
   # print(typeof(separate_zone))
   data_<-subset(data, zone == separate_zone)
@@ -287,13 +289,12 @@ for (separate_zone in zone_unique2){
   df<-data_
   df$label<-df$interaction
   # df$Time<-df$time
-  my_scale <- function(x) scales::rescale(x, to = c(min(data$time),max(data$time)))
+  my_scale <- function(x) scales::rescale(x, to = c(minimum, maximum))
   print(paste("Minimum and maxima of data are as",min(df$time),"vs",max(df$time),"while for the entire dataset it is",min(data$time),"and",max(data$time)))
   fig<-df |> group_by(interaction) |> e_charts(x) |> 
-    e_scatter_3d(y,z,time,label, emphasis = list(focus = "self"))|>
+    e_scatter_3d(y,z,time,label)|>
     e_tooltip() |>
-    e_visual_map(time,type = "continuous",min = 0,max = 100,inRange = list(symbol = "diamond",symbolSize = c(45,8), colorLightness = c(0.6,0.35)),scale = my_scale,dimension = 3,height = 100) |>
-    e_visual_map_range(selected = list(0,100))|>
+    e_visual_map(time,type = "continuous",inRange = list(symbol = "diamond",symbolSize = c(45,8), colorLightness = c(0.6,0.35)),scale = my_scale,dimension = 3,height = 100) |>
     e_x_axis_3d(min = 0,max = x_large[count],interval = step_x[count])|>
     e_y_axis_3d(min = 0,max = y_large[count],interval = step_y[count])|>
     e_z_axis_3d(min = 0,max = z_large[count],interval = step_z[count], name = "Z / Altitude")|>
@@ -303,8 +304,6 @@ for (separate_zone in zone_unique2){
     e_theme_custom("MyEChartsTheme2.json")
   htmlwidgets::saveWidget(fig, paste("Eanimation",separate_zone,".html",sep = "_"), selfcontained = TRUE)
 
-  #Time series plot animation
-  rm(fig)
 
 
 
@@ -416,7 +415,7 @@ htmlwidgets::saveWidget(fig, "Line.html", selfcontained = TRUE)
 rm(fig)
 # write.csv(S_,"infections_sample.csv", row.names = FALSE)
 # write.csv(S,"extra.csv", row.names = FALSE)
-write.csv(data,"full.csv", row.names = FALSE)
+# write.csv(data,"full.csv", row.names = FALSE)
 data <- S_ %>%
   mutate(dates = time) %>%
   select( -time) %>%
@@ -449,9 +448,31 @@ filled_data[is.na(filled_data$values), "values"] <- 0
 
 
 
-# Sort the combined data by 'groups' and 'dates'
+data <- S_%>%
+  mutate(dates = time) %>%
+  select( -time) %>%
+  rename(groups = interaction, values = count)
+
+data$dates <- as.numeric(data$dates)
+
+# Create a template dataframe with all unique combinations of groups and dates
+all_combinations <- expand.grid(
+  groups = unique(data$groups),
+  dates = unique(data$dates)
+)
+
+
+# Merge the template with the existing data
+filled_data <- merge(all_combinations, data, by = c("groups", "dates"), all = TRUE)
+
+# Replace missing values with 0
+filled_data[is.na(filled_data$values), "values"] <- 0
 filled_data <- filled_data[order(filled_data$groups, filled_data$dates), ]
-fig<-filled_data|>group_by(groups)|>
+
+start_date <- as.Date("2023-12-27")
+e1<-filled_data %>%   mutate(
+  dates = as.POSIXct(paste(start_date, dates), format = "%Y-%m-%d %H")
+) |>group_by(groups)|>
   e_charts(dates) |>
   e_area(values,
          emphasis = list(
@@ -465,25 +486,54 @@ fig<-filled_data|>group_by(groups)|>
     toolbox = TRUE,
     bottom = 10
   )|>
-  e_legend(right = 5,top = 80,selector = "inverse",show=TRUE,icon = 'circle',emphasis = list(selectorLabel = list(offset = list(10,0))), align = 'right',type = "scroll",width = 10,orient = "vertical")|>
+  e_legend(right = 5,top = 80,selector = "inverse",show=TRUE,icon = 'circle',emphasis = list(selectorLabel = list(offset = list(10,0))),type = "scroll",width = 10,orient = "vertical")|>
   e_legend_unselect("marker")|>
   e_legend_unselect("Host 0[*]")|>
   e_title(paste("Infection Occurrences over Time by Type"), "CIC Model | by Irshad Ul Ala")
-htmlwidgets::saveWidget(fig, "EAreaHistogram.html", selfcontained = TRUE)
 
-rm(fig)
-fig<-S_ |> group_by(interaction) |> e_charts(time) |>
+
+#River
+
+e2<-filled_data %>%   mutate(
+  dates = as.POSIXct(paste(start_date, dates), format = "%Y-%m-%d %H")
+) |>group_by(groups)|>
+  e_charts(dates) |>
+  e_river(values,
+          emphasis = list(
+            focus = "self"
+          )) %>% 
+  e_theme("westeros")|>
+  e_tooltip(trigger = "axis") %>% 
   e_datazoom(
     type = "slider",
-    toolbox = FALSE,
-    bottom = -5
+    toolbox = TRUE,
+    bottom = 40,
+    height = 10
   )|>
-  e_tooltip()|>
-  e_x_axis(time, axisPointer = list(show = TRUE))|>
-  e_area(count, stack = "grp")
+  e_legend(right = 25,top = 10,selector = "inverse",show=TRUE,icon = 'circle',emphasis = list(selectorLabel = list(offset = list(10,0))),type = "scroll",width = 600,orient = "horizontal")|>
+  e_legend_unselect("marker")|>
+  e_legend_unselect("Host 0[*]")|>
+  e_title(paste("Infection Occurrences over Time by Type"), "CIC Model | by Irshad Ul Ala")
 
-htmlwidgets::saveWidget(fig, "EArea.html", selfcontained = TRUE)
 
+
+
+#Morph
+cb<-"() => {
+  let x = 0;
+  document.getElementById('toggle')
+  .addEventListener('click',(e) => {
+    x++
+    chart.setOption(opts[x % 2], true);
+  });
+}"
+
+fig<-e_morph(e1,e2,callback = cb) %>% 
+  htmlwidgets::prependContent(
+    htmltools::tags$button("Toggle",id = "toggle")
+  )
+htmlwidgets::saveWidget(fig, "InfectionTypeDistribution.html", selfcontained = TRUE)
+rm(fig)
 
 #library(pandoc)
 #Get dem custom fonts
