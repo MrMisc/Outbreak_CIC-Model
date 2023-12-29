@@ -20,8 +20,7 @@ library(extrafont)
 library(pandoc)
 # Extract x, y coordinates
 
-data<-read.csv("full.csv")
-
+data<-read.csv("sample.csv")
 minimum<-min(data$time)
 maximum<-max(data$time)
 for (separate_zone in unique(data$zone)){
@@ -55,7 +54,7 @@ for (separate_zone in unique(data$zone)){
 print("First section generation complete!")
 
 S_ <- data %>%
-  group_by(interaction,time) %>%
+  group_by(interaction,time,zone) %>%
   summarise(count = n()) %>%
   ungroup()
 data <- S_ %>%
@@ -80,7 +79,7 @@ filled_data[is.na(filled_data$values), "values"] <- 0
 filled_data <- filled_data[order(filled_data$groups, filled_data$dates), ]
 
 start_date <- as.Date("2023-12-27")
-filled_data %>%   mutate(
+e1<-filled_data %>%   mutate(
   dates = as.POSIXct(paste(start_date, dates), format = "%Y-%m-%d %H")
 ) |>group_by(groups)|>
   e_charts(dates) |>
@@ -96,7 +95,7 @@ filled_data %>%   mutate(
     toolbox = TRUE,
     bottom = 10
   )|>
-  e_legend(right = 5,top = 80,selector = "inverse",show=TRUE,icon = 'circle',emphasis = list(selectorLabel = list(offset = list(10,0))), align = 'right',type = "scroll",width = 10,orient = "vertical")|>
+  e_legend(right = 5,top = 80,selector = "inverse",show=TRUE,icon = 'circle',emphasis = list(selectorLabel = list(offset = list(10,0))),type = "scroll",width = 10,orient = "vertical")|>
   e_legend_unselect("marker")|>
   e_legend_unselect("Host 0[*]")|>
   e_title(paste("Infection Occurrences over Time by Type"), "CIC Model | by Irshad Ul Ala")
@@ -104,7 +103,7 @@ filled_data %>%   mutate(
 
 #River
 
-filled_data %>%   mutate(
+e2<-filled_data %>%   mutate(
   dates = as.POSIXct(paste(start_date, dates), format = "%Y-%m-%d %H")
 ) |>group_by(groups)|>
   e_charts(dates) |>
@@ -120,11 +119,108 @@ filled_data %>%   mutate(
     bottom = 40,
     height = 10
   )|>
-  e_legend(right = 25,top = 10,selector = "inverse",show=TRUE,icon = 'circle',emphasis = list(selectorLabel = list(offset = list(10,0))), align = 'right',type = "scroll",width = 600,orient = "horizontal")|>
+  e_legend(right = 25,top = 10,selector = "inverse",show=TRUE,icon = 'circle',emphasis = list(selectorLabel = list(offset = list(10,0))),type = "scroll",width = 600,orient = "horizontal")|>
   e_legend_unselect("marker")|>
   e_legend_unselect("Host 0[*]")|>
   e_title(paste("Infection Occurrences over Time by Type"), "CIC Model | by Irshad Ul Ala")
 
 
+
+
+#Morph
+cb<-"() => {
+  let x = 0;
+  document.getElementById('toggle')
+  .addEventListener('click',(e) => {
+    x++
+    chart.setOption(opts[x % 2], true);
+  });
+}"
+
+e_morph(e1,e2,callback = cb) %>% 
+  htmlwidgets::prependContent(
+    htmltools::tags$button("Toggle",id = "toggle")
+  )
+
+
+#Bind??
+# 
+# filled_data %>%   mutate(
+#   dates = as.POSIXct(paste(start_date, dates), format = "%Y-%m-%d %H")
+# ) |>group_by(groups)|>
+#   e_charts(dates) |>
+#   e_area(values,bind = dates,
+#          emphasis = list(
+#            focus = "self"
+#          )) |> 
+#   e_y_axis(min = 0)|>
+#   e_tooltip() %>% 
+#   e_data(filled_data,values) %>% 
+#   e_river(values,bind = dates,
+#           emphasis = list(
+#             focus = "self"
+#           )) %>% 
+#   e_theme("westeros") %>% 
+#   e_grid(right = 40, top = 100, width = "30%") 
+# 
+
+library(echarty)
+setting <- list(show = T,type= "scroll",orient= "horizontal", pageButtonPosition= 'start',
+                right= "30%",top = 30,width = 470, icon = 'circle', align= 'left', height='85%')
+#Below affects the ordering of the categories in the x-axis (including dates)
+tmp <- filled_data |> group_by(zone,dates) |> summarize(ss= n()) |>
+  ungroup() |> inner_join(filled_data) |>  arrange(dates) |> group_by(zone) |> group_split()
+# fine-tune legends: data by interactions (called groups in this dataset)
+cns <- lapply(seq_along(tmp), \(i) { as.list(unique(tmp[[i]]$groups)) })
+xax <- lapply(seq_along(tmp), \(i) { as.list(unique(tmp[[i]]$dates)) })
+
+subset(filled_data,is.na(zone) ==  FALSE) %>% 
+  mutate(dates = as.factor(dates)) %>% 
+  group_by(zone) |> 
+  ec.init(
+    xAxis = list(name = 'Interaction',nameLocation = 'end',max = max(filled_data$dates),
+                 nameTextStyle = list(fontWeight ='bolder'),
+                 axisLabel = list(rotate = 346,width = 65,
+                                  overflow = 'truncate')),
+    yAxis = list(name = "Count",nameLocation = 'start',
+                 nameTextStyle = list(fontWeight ='bolder')),
+    dataZoom= list(type= 'slider',orient = 'vertical'
+                   ,left = '2%'),
+    tl.series = list(type  ='bar',stack = "grp",
+                     encode = list(x = 'dates',y = 'values'), groupBy= 'groups',
+                     emphasis= list(focus= 'series',
+                                    itemStyle=list(shadowBlur=10,
+                                                   shadowColor='rgba(0,0,0,0.5)'),
+                                    label= list(position= 'right',
+                                                rotate = 350,
+                                                show=TRUE)),
+                     title = list(list(left = "80%",top = "1%"),
+                                  list(text = "Outbreak incidents by year", 
+                                  left = "10%", top = 10, textStyle = list(fontWeight = "normal", fontSize = 20),
+                                  text = "WAHIS Dataset", 
+                                  left = "10%", top = 17, textStyle = list(fontWeight = "normal", fontSize = 14))) ),
+    tooltip = list(show = T))|>
+  ec.upd({
+    options <- lapply(options, \(oo) {
+      dix <- oo$series[[5]]$datasetIndex  # from tl.series (bar)
+      oo$series <- append(oo$series, 
+                          list(
+                            list(type='pie', name='pop.',
+                                 datasetIndex= dix,
+                                 encode= list(value='values', itemName='groups'), 
+                                 center= c('15%', '25%'), radius= '14%', 
+                                 label= list(show=T), labelLine= list(length=5, length2=0))
+                          ))
+      oo
+    })
+  }) %>% 
+  ec.upd({legend<-setting
+  options <- lapply(seq_along(options), \(i) {  
+    options[[i]]$legend$data <- cns[[i]]  # fine-tune legends: data by interactions
+    options[[i]]$xAxis$data <- xax[[i]] 
+    options[[i]] 
+  })
+  }) %>% 
+  ec.theme("something",westeros)
 
 
