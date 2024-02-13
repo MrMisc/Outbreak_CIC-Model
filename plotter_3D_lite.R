@@ -15,9 +15,10 @@ numbers_<-c()
 
 
 print(getwd())
+load("echarty_themes.R")
 coordinates <- strsplit(record, " ")
 # Plot heatmap
-library(ggplot2)
+# library(ggplot2)
 library(pandoc)
 library(plotly)
 
@@ -25,7 +26,7 @@ library("ggplot2")
 library("plotly")
 library("breakDown")
 library(dplyr)
-library(ggdark)
+# library(ggdark)
 library(pracma)
 library(comprehenr)
 library(ggridges)
@@ -63,6 +64,10 @@ thematic_on(bg = "#FCE9D7", fg = "orange", accent = "purple",font = "Yu Gothic")
 # Create a unique identifier for each time unit
 no_of_zones<-length(unique(data$Zone))
 data$TimeUnit <- rep(seq_len(nrow(data) / no_of_zones), each = no_of_zones)
+
+
+
+
 
 # Farm
 
@@ -151,6 +156,59 @@ fig_dots <- data %>%
 htmlwidgets::saveWidget(fig_dots, "scatter.html", selfcontained = TRUE)
 
 
+#Echarty impl
+library(reshape)
+library(echarty)
+names(data)
+
+names(data)<-c("%Contaminated","Total Hosts","No contaminated",
+               "%Infected","Total Hosts(repeated)","No infected",
+               "%Eggs Infected","Eggs Amt","Eggs Amt Infected",
+               "%Colonized","No Colonized","%Faeces infected",
+               "Faeces Amt","Faeces Amt Infected","Zone","TimeUnit")
+
+df<-melt(data,c("Total Hosts","No contaminated","Total Hosts(repeated)","No infected","Eggs Amt","Eggs Amt Infected",
+                "No Colonized","Faeces Amt","Faeces Amt Infected","TimeUnit","Zone"))
+
+setting <- list(show = T,type= "scroll",orient= "horizontal", pageButtonPosition= 'start',
+                right= "30%",top = 30,width = 470, icon = 'circle', align= 'left', height='85%')
+tmp <- df |> group_by(Zone) |> group_split()
+cns <- lapply(seq_along(tmp), \(i) { as.list(unique(tmp[[i]]$variable)) })
+
+
+
+
+df %>% mutate(value = round(value,1))%>%
+  group_by(Zone) |> 
+  ec.init(
+    title= list(text= 'Temporal Trends: Contamination/Infection/Colonization Rates Across Hosts, Eggs, and Faeces '),
+    xAxis = list(name = 'Time',nameLocation = 'start',
+                 nameTextStyle = list(fontWeight ='bolder'),
+                 axisLabel = list(rotate = 346,width = 65,
+                                  overflow = 'truncate')),
+    yAxis = list(max = 100,name = "% compromised",nameLocation = 'start',
+                 nameTextStyle = list(fontWeight ='bolder')),
+    dataZoom= list(list(type= 'slider',orient = 'vertical'
+                   ,left = '2%'),list(type= 'slider',orient = 'horizontal'
+                                      ,right = '2%',top='1%', width = '20%')),
+    tl.series = list(type  ='line',
+                     encode = list(x = 'TimeUnit',y = 'value'), groupBy= 'variable',
+                     emphasis= list(focus= 'series',
+                                    itemStyle=list(shadowBlur=10,
+                                                   shadowColor='rgba(0,0,0,0.5)'),
+                                    label= list(position= 'right',
+                                                rotate = 350,
+                                                show=TRUE))),
+    tooltip = list(show = T, trigger = 'axis'))|>
+  ec.upd({legend<-setting
+  options <- lapply(seq_along(options), \(i) {  
+    tita<-title
+    tita$text <- paste(tita$text, options[[i]]$title$text)
+    options[[i]]$title <- tita   # here we set a title for each timeline step    
+    options[[i]]$legend$data <- cns[[i]]  # fine-tune legends: data by continent
+    options[[i]] 
+  })
+  }) |> ec.theme("thing",westeros)
 
 # #Collection
 
