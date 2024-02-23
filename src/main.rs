@@ -477,12 +477,12 @@ pub struct host{
 }
 //Note that if you want to adjust the number of zones, you have to, in addition to adjusting the individual values to your liking per zone, also need to change the slice types below!
 //Resolution
-const STEP:[[usize;3];4] = [[20,20,4],[5,5,5],[8,8,8],[10,10,10]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
+const STEP:[[usize;3];2] = [[4,4,4],[2,2,2]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
 const HOUR_STEP: f64 = 4.0; //Number of times hosts move per hour
-const LENGTH: usize =33; //How long do you want the simulation to be?
+const LENGTH: usize =13; //How long do you want the simulation to be?
 //Infection/Colonization module
 // ------------Do only colonized hosts spread disease or do infected hosts spread
-const HOST_0:usize = 200;
+const HOST_0:usize = 1000;
 const COLONIZATION_SPREAD_MODEL:bool = true;
 const TIME_OR_CONTACT:bool = true; //true for time -> contact uses number of times infected to determine colonization
 const IMMORTAL_CONTAMINATION:bool = false;
@@ -508,16 +508,16 @@ const EGGTOFAECES_CONTACT_SPREAD:bool = true;
 const FAECESTOEGG_CONTACT_SPREAD:bool = true;
 // const INITIAL_COLONIZATION_RATE:f64 = 0.47; //Probability of infection, resulting in colonization -> DAILY RATE ie PER DAY
 //Space
-const LISTOFPROBABILITIES:[f64;4] = [0.9;4]; //Probability of transfer of disease per zone - starting from zone 0 onwards
-const CONTACT_TRANSMISSION_PROBABILITY:[f64;4] = [1.0;4];
-const GRIDSIZE:[[f64;3];4] = [[2000.0,200.0,8.0],[500.0;3],[800.0;3],[100000.0,10.0,10.0]];
+const LISTOFPROBABILITIES:[f64;2] = [0.9;2]; //Probability of transfer of disease per zone - starting from zone 0 onwards
+const CONTACT_TRANSMISSION_PROBABILITY:[f64;2] = [1.0;2];
+const GRIDSIZE:[[f64;3];2] = [[400.0,400.0,8.0],[10000.0,2.0,2.0]];
 const MAX_MOVE:f64 = 10.0;
 const MEAN_MOVE:f64 = 4.0;
 const STD_MOVE:f64 = 3.0; // separate movements for Z config
 const MAX_MOVE_Z:f64 = 1.0;
 const MEAN_MOVE_Z:f64 = 2.0;
 const STD_MOVE_Z:f64 = 4.0;
-const NO_OF_HOSTS_PER_SEGMENT:[u64;4] = [1,5,8,1];
+const NO_OF_HOSTS_PER_SEGMENT:[u64;2] = [1,1];
 //Anchor points
 //Vertical perches
 const PERCH:bool = false;
@@ -529,12 +529,13 @@ const DEPERCH_FREQ:f64 = 0.4; //probability that a host when already on perch, d
 const NEST:bool = false;
 const NESTING_AREA:f64 = 0.25; //ratio of the total area of segment in of which nesting area is designated - min x y z side
 //Space --- Segment ID
-const TRANSFERS_ONLY_WITHIN:[bool;4] = [true,false,false,false]; //Boolean that informs simulation to only allow transmissions to occur WITHIN segments, not between adjacent segments
+const TRANSFERS_ONLY_WITHIN:[bool;2] = [true,false]; //Boolean that informs simulation to only allow transmissions to occur WITHIN segments, not between adjacent segments
 //Fly option
 const FLY:bool = false;
 const FLY_FREQ:u8 = 3; //At which Hour step do the  
 //Disease 
 const TRANSFER_DISTANCE: f64 = 1.0;//maximum distance over which hosts can trasmit diseases to one another
+const CONTAMINATE_TRANSFER_DISTANCE: f64 = 1.0;
 const SIZE_FACTOR_FOR_EGGS:f64 = 0.15; //eggs are significantly smaller than their original hosts, so it stands to reason that their transfer distance for contact spread should be smaller
 //Host parameters
 const MEAN_AGE:f64 = 17.0*7.0*24.0; //Mean age of hosts imported (IN HOURS)
@@ -543,7 +544,7 @@ const MAX_AGE:f64 = 20.0*7.0*24.0; //Maximum age of host accepted (Note: as of n
 const DEFECATION_RATE:f64 = 6.0; //Number times a day host is expected to defecate
 const MIN_AGE:f64 = 1.0*24.0;
 
-const DEPOSIT:bool = true;
+const DEPOSIT:bool = false;
 const DEPOSIT_RATE_AFFECTED_BY_INFECTION:bool = true;
 const DEPOSIT_RATE:f64 = 6.0/7.0; //Number of times a day host is expected to deposit a consumable deposit
 const DEPOSIT_RATE_INFECTION_MULTIPLIER:f64 = 2.0/3.0;
@@ -561,33 +562,32 @@ const FEED_DURATION:f64 = 0.5;
 
 
 //Purge/Slaughter parameters
-const SLAUGHTER_POINT:usize = 200; //Somewhere in zone {}, the hosts are slaughtered/killed and will cease to produce any eggs or faeces
+const SLAUGHTER_POINT:usize = 0; //Somewhere in zone {}, the hosts are slaughtered/killed and will cease to produce any eggs or faeces
 //Evisceration parameters
 //We assume that all hosts are isolated from the rest of the hosts in the zone per evisceration "unit"
 const EVISCERATE:bool = true;
-const EVISCERATE_ZONES:[usize;1] = [3]; //Zone in which evisceration takes place
+const EVISCERATE_ZONES:[usize;1] = [1]; //Zone in which evisceration takes place
 const EVISCERATE_DECAY:u8 = 5;
-const NO_OF_EVISCERATORS:[usize;1] = [20];
+const NO_OF_EVISCERATORS:[usize;1] = [5000];
 const EVISCERATOR_TO_HOST_PROBABILITY_DECAY:f64 = 0.25;   //Multiplicative decrease of  probability - starting from LISTOFPROBABILITIES value 100%->75% (if 0.25 is value)->50% ->25%->0%
 
 const CURVATURE:bool = true;
 //We are assuming that when eviscerators are brought into a circle, the distance between them is maintained - inevitably determining the radius of the curvature
 //In other words, we are assuming that all the eviscerator probes fit within a semicircle, and that there is no extension of this range of eviscerators
 const PI:f64 = std::f64::consts::PI;
-const ANGLE_MAXIMA:f64 = 0.15*PI; //Maximum angular displacement, above which, mishaps cannot travel anyway
+const ANGLE_MAXIMA:f64 = 0.25*PI; //Maximum angular displacement, above which, mishaps cannot travel anyway
 //Evisceration -------------> Mishap/Explosion parameters
 const MISHAP:bool = true;
 const MISHAP_PROBABILITY:f64 = 0.3;
-const MISHAP_RADIUS:f64 = 1001.0; //Must be larger than the range_x of the eviscerate boxes for there to be any change in operation
+const MISHAP_RADIUS:f64 = 10.0; //Must be larger than the range_x of the eviscerate boxes for there to be any change in operation
 //Transfer parameters
-const ages:[f64;4] = [1.0,10.0,10.0,2.0]; //Time hosts are expected spend in each region minimally
+const ages:[f64;2] = [0.01,0.9]; //Time hosts are expected spend in each region minimally
 //Collection
 const AGE_OF_HOSTCOLLECTION: f64 = 20.0*24.0;  //For instance if you were collecting hosts every 15 days
 const COLLECT_DEPOSITS: bool = true;
 const AGE_OF_DEPOSITCOLLECTION:f64 = 1.0*24.0; //If you were collecting their eggs every 3 days
 const FAECAL_CLEANUP_FREQUENCY:usize = 2; //How many times a day do you want faecal matter to be cleaned up?
 //or do we do time collection instead?
-const TIME_OF_COLLECTION :f64 = 200.0; //Time that the host has spent in the last zone from which you collect ONLY. NOT THE TOTAL TIME SPENT IN SIMULATION
 //Influx? Do you want new hosts being fed into the scenario everytime the first zone exports some to the succeeding zones?
 const INFLUX:bool = false;
 const PERIOD_OF_INFLUX:u8 = 2; //How many hours before new batch of hosts are imported?
@@ -688,7 +688,7 @@ impl host{
         vector
     }
     fn infect_multiple(mut vector:Vec<host>,loc_x:u64,loc_y:u64,loc_z:u64,n:usize,zone:usize, colonized:bool)->Vec<host>{ //homogeneous application ->Periodically apply across space provided,->Once per location
-        let mut filtered_vector: Vec<&mut host> = vector.iter_mut().filter(|host| host.zone == zone).collect();
+        let mut filtered_vector: Vec<&mut host> = vector.iter_mut().filter(|host| host.zone == zone && !host.infected).collect();
 
         filtered_vector.sort_by_key(|host| {
             let dx = host.origin_x as i64 - loc_x as i64;
@@ -1048,6 +1048,31 @@ impl host{
         }
         t.powf(0.5)<=transfer_distance && host1.zone == host2.zone
     }
+
+    fn dist_contaminate(host1: &host, host2: &host)->bool{
+        let diff_x: f64 = host1.x -host2.x;
+        let diff_y: f64 = host1.y - host2.y;
+        let diff_z: f64 = host1.z - host2.z;
+        let t: f64 = diff_x.powf(2.0)+diff_y.powf(2.0) + diff_z.powf(2.0);
+        /////
+        //PRINT STATEMENT
+        // if t.powf(0.5)<=TRANSFER_DISTANCE{
+        //     println!("{} {} vs {} {}",&host1.x,&host1.y,&host2.x,&host2.y);
+        // }
+        ////
+        let mut transfer_distance:f64 = CONTAMINATE_TRANSFER_DISTANCE;
+        if host1.motile==2{
+            if host2.motile ==2{
+                transfer_distance *= SIZE_FACTOR_FOR_EGGS;
+                // if t.powf(0.5)<transfer_distance{println!("Egg to egg infection! @ {:?} vs {:?}, with infection status:{} vs {} respectively",[host1.x,host1.y,host1.z],[host2.x,host2.y,host2.z],host1.infected,host2.infected);}
+            }else{
+                transfer_distance = CONTAMINATE_TRANSFER_DISTANCE/2.0 + CONTAMINATE_TRANSFER_DISTANCE*SIZE_FACTOR_FOR_EGGS;
+            }
+        }else if host2.motile == 2{
+            transfer_distance = CONTAMINATE_TRANSFER_DISTANCE/2.0 + CONTAMINATE_TRANSFER_DISTANCE*SIZE_FACTOR_FOR_EGGS;
+        }
+        t.powf(0.5)<=transfer_distance && host1.zone == host2.zone
+    }    
     fn transmit(mut inventory: Vec<host>, time: usize) -> Vec<host> {
         // Locate all infected/colonized hosts
         let mut cloneof: Vec<host> = inventory.clone();
@@ -1065,7 +1090,7 @@ impl host{
         // println!("Length of infectors is {}",cloneof.len());
         //to be infected
         if COLONIZATION_SPREAD_MODEL{
-            inventory = inventory.into_par_iter().filter(|x| (!x.colonized && x.motile == 0) || (!x.infected && x.motile != 0) ).collect::<Vec<host>>();
+            inventory = inventory.into_par_iter().filter(|x| ((!x.colonized && x.motile == 0) || (!x.infected && x.motile != 0)) ).collect::<Vec<host>>();
         }else{
             inventory = inventory.into_par_iter().filter(|x| !x.infected).collect::<Vec<host>>(); //potentially to save bandwidth, let us remove the concept of colonization in eggs and faeces -> don't need to log colonization in faeces especially!
         }
@@ -1083,7 +1108,9 @@ impl host{
                     // let eggtofaeces_contact_rules:bool = (EGGTOFAECES_CONTACT_SPREAD || !EGGTOFAECES_CONTACT_SPREAD && !(inf.motile ==  1 && x.motile == 2));
                     // let faecestoegg_contact_rules:bool = (FAECESTOEGG_CONTACT_SPREAD || !FAECESTOEGG_CONTACT_SPREAD && !(inf.motile ==  2 && x.motile == 1));
                     // let contact_rules:bool = hosttohost_contact_rules && hosttoegg_contact_rules && hosttofaeces_contact_rules && eggtohost_contact_rules && faecestohost_contact_rules && eggtofaeces_contact_rules && faecestoegg_contact_rules;
-                    if host::dist(inf, &x) && inf.zone == x.zone && segment_boundary_condition && (inf.motile == 2 && x.motile == 0) && !x.infected{
+
+                    //THIS CONDITION BELOW IS MADE SUCH THAT THE ONLY WAY THE HOST CAN GET INFECTD IS IF IT IS NEAR FAECES AND CONSUMES IT => CONSOLIDATED INTO ONE PROB EVENT
+                    if host::dist(inf, &x) && inf.zone == x.zone && segment_boundary_condition && (inf.motile == 2 && x.motile == 0) && !x.infected && inf.zone<=SLAUGHTER_POINT{
                         let before = x.infected.clone();
                         x.infected = x.transfer(1.0);
                         if !before && x.infected {
@@ -1153,7 +1180,7 @@ impl host{
                     let eggtofaeces_contact_rules:bool = (EGGTOFAECES_CONTACT_SPREAD || !EGGTOFAECES_CONTACT_SPREAD && !(inf.motile ==  1 && x.motile == 2));
                     let faecestoegg_contact_rules:bool = (FAECESTOEGG_CONTACT_SPREAD || !FAECESTOEGG_CONTACT_SPREAD && !(inf.motile ==  2 && x.motile == 1));
                     let contact_rules:bool = hosttohost_contact_rules && hosttoegg_contact_rules && hosttofaeces_contact_rules && eggtohost_contact_rules && faecestohost_contact_rules && eggtofaeces_contact_rules && faecestoegg_contact_rules;
-                    if host::dist(inf, &x) && inf.zone == x.zone && segment_boundary_condition && contact_rules && !x.contaminated{
+                    if host::dist_contaminate(inf, &x) && inf.zone == x.zone && segment_boundary_condition && contact_rules && !x.contaminated{
                         let before = x.contaminated.clone();
                         x.contaminated = roll(x.prob2);
                         if !before && x.contaminated {
@@ -1173,6 +1200,19 @@ impl host{
                                     time,
                                     x.zone
                                 );
+                                //Diagnostic
+                                // panic!(
+                                //     "{} {} {} {} {} {} {} {} {}",
+                                //     x.x,
+                                //     inf.x,
+                                //     x.y,
+                                //     inf.y,
+                                //     x.z,
+                                //     inf.z,
+                                //     diagnostic*(((x.motile+1) as i8) * ((inf.motile+1) as i8) + 100), 
+                                //     time,
+                                //     x.zone
+                                // );                                
                                 // if x.zone == 2 && diagnostic*((x.motile+1) as i8) * ((inf.motile+1) as i8)==1{
                                 //     println!("INAPPROPRIATE INTERACTION @ zone 2 Delta x : {},Delta y : {},Delta z : {} -> Segments between 2 hosts are the same? : {}",x.x-inf.x,x.y-inf.y,x.z-inf.z,x.origin_x == inf.origin_x&&x.origin_y == inf.origin_y&&x.origin_z == inf.origin_z);
                                 //     panic!();
@@ -1432,16 +1472,12 @@ fn main(){
     .unwrap();
     let mut wtr = Writer::from_writer(file);
     for time in 0..LENGTH{
+        // println!("Capacity of zone 1 is {}",zones[1].capacity);
         let mut collect: Vec<host> = Vec::new();
         if time % (24/FAECAL_CLEANUP_FREQUENCY) ==0{
             (faecal_inventory,hosts) = host::cleanup(hosts);
         }
         // println!("{} CHECK {}",time%(PERIOD_OF_TRANSPORT  as usize),time%(PERIOD_OF_TRANSPORT  as usize) == 0);
-        if time%(PERIOD_OF_TRANSPORT  as usize)==0{
-            // println!("Fulfilling period of transport right now");
-            host::transport(&mut hosts,&mut zones,influx);
-            // println!("Total number of hosts is {}: Total number of faeces is {}",  hosts.clone().into_iter().filter(|x| x.motile == 0).collect::<Vec<_>>().len() as u64,hosts.clone().into_iter().filter(|x| x.motile == 2).collect::<Vec<_>>().len() as u64)
-        }        
 
 
         for times in FEED_TIMES{
@@ -1459,6 +1495,13 @@ fn main(){
                 // println!("{} hosts have been eviscerated and infected so far",hosts.clone().into_iter().filter(|x| x.eviscerated && x.infected).collect::<Vec<_>>().len() as u64);
             }
         }
+
+        if time%(PERIOD_OF_TRANSPORT  as usize)==0{
+            // println!("Fulfilling period of transport right now");
+            host::transport(&mut hosts,&mut zones,influx);
+            // println!("Total number of hosts is {}: Total number of faeces is {}",  hosts.clone().into_iter().filter(|x| x.motile == 0).collect::<Vec<_>>().len() as u64,hosts.clone().into_iter().filter(|x| x.motile == 2).collect::<Vec<_>>().len() as u64)
+        }        
+
         let mut FinalZone:&mut Zone_3D = &mut zones[GRIDSIZE.len()-1];
         [hosts,collect] = host::collect__(hosts,&mut FinalZone);
 
