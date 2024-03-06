@@ -1,4 +1,5 @@
 // use std::thread;
+use rand::prelude::SliceRandom;
 use rand::distributions::Uniform;
 use rand::distributions::{Distribution, Standard};
 use rand::{thread_rng, Rng};
@@ -268,7 +269,7 @@ impl Zone_3D{
         //if CURVATURE is false -> all calculations below for minimum distance follow the typical self.segments[0].range_xand linear calculations propagate forward 
         let have_curvature:f64 = (CURVATURE as u64) as f64;
         //unit angle between stations of hosts in evisceration process
-        let angle:f64 = PI/(step_size as f64 - 1.0) * have_curvature + PI*(1.0 - have_curvature); 
+        let angle:f64 = 2.0*(PI/(step_size as f64 - 1.0) * have_curvature + PI*(1.0 - have_curvature)); 
         //Cosine rule to calculate c from a,b and angle AB between 2 nearest ( this and next line)
         let mut minimum_distance:f64 = 2.0*(1.0 - angle.cos()); 
         minimum_distance = minimum_distance.powf(0.5)*(self.segments[0].range_x as f64)/angle;
@@ -568,8 +569,9 @@ const SLAUGHTER_POINT:usize = 0; //Somewhere in zone {}, the hosts are slaughter
 const EVISCERATE:bool = true;
 const EVISCERATE_ZONES:[usize;1] = [1]; //Zone in which evisceration takes place
 const EVISCERATE_DECAY:u8 = 5;
-const NO_OF_EVISCERATORS:[usize;1] = [5000];
+const NO_OF_EVISCERATORS:[usize;1] = [100];
 const EVISCERATOR_TO_HOST_PROBABILITY_DECAY:f64 = 0.25;   //Multiplicative decrease of  probability - starting from LISTOFPROBABILITIES value 100%->75% (if 0.25 is value)->50% ->25%->0%
+const CLEAN_EVISCERATORS:bool = false; //Be sure to set the hours when eviscerators are manually cleaned yourself (Might need to run simulation to figure out when evisceraors get  used at all)
 
 const CURVATURE:bool = true;
 //We are assuming that when eviscerators are brought into a circle, the distance between them is maintained - inevitably determining the radius of the curvature
@@ -727,11 +729,16 @@ impl host{
             // let mut __:u32 = space.clone()[zone].capacity;
             if &space[zone].capacity>&0 && zone>0{ //If succeeding zones (obviously zone 0 doesn't have do to this - that needs to be done with a replace mechanism)
                 // let zone_toedit:&mut Zone_3D = &mut space[zone];
+                //RANDOMIZE BEFORE PICKING FOR TRANSPORT TO ALLOW FOR RANDOM EFFECTS
+                // vector.as_mut_slice().shuffle(&mut rand::thread_rng()); 
+                vector.sort_by_key(|s| (s.x as i32, s.y as i32, s.z as i32));
                 vector.iter_mut().for_each(|mut x| {
                     if x.zone == zone-1 && x.time>ages[zone-1]&& x.motile == 0 && space[zone].capacity>0 && (( !EVISCERATE || EVISCERATE_ZONES.contains(&x.zone) == false) || EVISCERATE &&  EVISCERATE_ZONES.contains(&x.zone) && x.eviscerated) { //Hosts in previous zone that have spent enough time spent in previous zone
                         //Find the first available segment
                         // println!("Transporting...");
                         // println!("Current szone")
+                        // if x.infected && x.zone ==0{println!("Infected");}
+                        // else if !x.infected && x.zone == 0{println!("Not infected");}
                         // __ -= 1;
                         // println!("Capacity for zone {} is now:{} - pre subtraction",zone-1,space[zone-1].capacity);
                         space[zone-1].subtract(x.origin_x.clone(),x.origin_y.clone(),x.origin_z.clone()); //move host from previous zone
@@ -1501,6 +1508,15 @@ fn main(){
             host::transport(&mut hosts,&mut zones,influx);
             // println!("Total number of hosts is {}: Total number of faeces is {}",  hosts.clone().into_iter().filter(|x| x.motile == 0).collect::<Vec<_>>().len() as u64,hosts.clone().into_iter().filter(|x| x.motile == 2).collect::<Vec<_>>().len() as u64)
         }        
+
+        //Periodically cleaning eviscerators
+        if (time==3 || time==5 || time==7) && CLEAN_EVISCERATORS{
+            // println!("Cleaning eviscerators!");
+            eviscerators.iter_mut().for_each(|mut ev|{
+                ev.infected = false;
+            })
+        }
+
 
         let mut FinalZone:&mut Zone_3D = &mut zones[GRIDSIZE.len()-1];
         [hosts,collect] = host::collect__(hosts,&mut FinalZone);
