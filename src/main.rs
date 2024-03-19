@@ -154,6 +154,7 @@ impl Segment_3D{
 
 pub struct Eviscerator{
     zone:usize,
+    set:usize,
     infected: bool,
     number_of_times_infected:u8
 }
@@ -242,8 +243,10 @@ impl Zone_3D{
             }
         }
     }
-    fn eviscerate(&mut self,eviscerators:&mut Vec<Eviscerator>, vector1:&mut Vec<host>,time:usize){
-        let mut vector: Vec<&mut host> = vector1.iter_mut().filter(|host| !host.eviscerated && host.zone == self.zone && host.motile == 0).collect();
+    fn eviscerate(&mut self,eviscerators:&mut Vec<Eviscerator>, vector1:&mut Vec<host>,time:usize,no_to_do:usize, set:usize){
+        //grab hosts that are inside the zone and not eviscerated and actually the previously motile hosts
+        let mut vector: Vec<&mut host> = vector1.iter_mut().filter(|host| !host.eviscerated && host.zone == self.zone && host.motile == 0).take(no_to_do).collect();
+        
         let vector_length:usize = vector.len();
 
         let no_infected : usize = vector.iter().filter(|&x| {
@@ -254,9 +257,9 @@ impl Zone_3D{
         }).collect::<Vec<_>>().len();
         // println!("[BEFORE] : {} of {} hosts in this evisceration process, at zone {} are not-infected, while {} are infected",no_not_infected,vector_length,self.zone, no_infected);
         //Filter out eviscerators that are for the zone in particular
-        let mut evs: Vec<&mut Eviscerator> = eviscerators.iter_mut().filter(|ev| ev.zone == self.zone).collect();
+        let mut evs: Vec<&mut Eviscerator> = eviscerators.iter_mut().filter(|ev| ev.zone == self.zone && ev.set == set).collect();
         // Define the step size for comparison
-        let step_size = evs.len();
+        let step_size = NO_OF_EVISCERATORS[self.zone-1];
 
         fn radialise(ang:f64, dist:f64,d:f64)->bool{
             //Function to convert the radial distance between 2 points into a linear distance (minimum distance between these 2 points, and compare it )
@@ -287,13 +290,14 @@ impl Zone_3D{
         //We use a user defined variable -> ANGLE MAXIMA to denote the maximum angualr displacement under which MISHAPS can be spread
         // let mut no:usize = 0;
         if CURVATURE{
-            // println!("angle is {}", angle);
-            // println!("While ANGLE_MAXIMA (the numerator) is {}", ANGLE_MAXIMA);
+            // println!("angle is {} degrees", angle*180.0/PI);
+            // println!("While ANGLE_MAXIMA (the numerator) is {} degrees", ANGLE_MAXIMA*180.0/PI);
             //In curvature terms, we limit it using ANGLE MAZXIMA
             // println!("ANGLE MAXIMA IS {} while angle is {}", ANGLE_MAXIMA, angle);
             let mut angle_spacing:usize = 0;
             if ANGLE_MAXIMA<=PI{angle_spacing = ((ANGLE_MAXIMA/angle) as u64) as usize;}
             else{angle_spacing = ((PI/angle) as u64) as usize;}
+            // println!("Previous index spacing is {}", index_spacing);
             if index_spacing>angle_spacing{index_spacing = angle_spacing;}
             // println!("As a result, index spacing has been changed to {}", index_spacing);
             // panic!("Checking angles");
@@ -355,6 +359,7 @@ impl Zone_3D{
         }
         
         // --------
+        // let number_of_sets:usize = NO_OF_EVISCERATOR_SETS[self.zone-1];
         //Evisceration spread
         vector.sort_by(|a,b| a.origin_x.cmp(&b.origin_x));
         // Create an iterator to loop over the vector in step_size chunks
@@ -379,7 +384,7 @@ impl Zone_3D{
             // .filter(|array| MISHAP && evs[array[1]%step_size].infected && roll(MISHAP_PROBABILITY) && roll(1.0-(evs[array[1]%step_size].number_of_times_infected as f64)*EVISCERATOR_TO_HOST_PROBABILITY_DECAY) && array[0] == global_index)
             .filter(|array| array[0] == global_index)
             .collect();
-    
+            
             // Extract the third index from each matched array and collect into matched_indices
             for matched_array in matched_arrays {
                 trigger.push(matched_array[1]);
@@ -569,7 +574,8 @@ const SLAUGHTER_POINT:usize = 0; //Somewhere in zone {}, the hosts are slaughter
 const EVISCERATE:bool = true;
 const EVISCERATE_ZONES:[usize;1] = [1]; //Zone in which evisceration takes place
 const EVISCERATE_DECAY:u8 = 5;
-const NO_OF_EVISCERATORS:[usize;1] = [100];
+const NO_OF_EVISCERATORS:[usize;1] = [16];
+const NO_OF_EVISCERATOR_SETS:[usize;1] = [5];
 const EVISCERATOR_TO_HOST_PROBABILITY_DECAY:f64 = 0.25;   //Multiplicative decrease of  probability - starting from LISTOFPROBABILITIES value 100%->75% (if 0.25 is value)->50% ->25%->0%
 const CLEAN_EVISCERATORS:bool = false; //Be sure to set the hours when eviscerators are manually cleaned yourself (Might need to run simulation to figure out when evisceraors get  used at all)
 
@@ -1398,8 +1404,10 @@ fn main(){
     let mut eviscerators:Vec<Eviscerator> = Vec::new();
     if EVISCERATE{
         for index in 0..EVISCERATE_ZONES.len(){
-            for _ in 0..NO_OF_EVISCERATORS[index]{
-                eviscerators.push(Eviscerator{zone:EVISCERATE_ZONES[index],infected:false,number_of_times_infected:0})
+            for set_no in 0..NO_OF_EVISCERATOR_SETS[index]{
+                for _ in 0..NO_OF_EVISCERATORS[index]{
+                    eviscerators.push(Eviscerator{zone:EVISCERATE_ZONES[index],set:set_no,infected:false,number_of_times_infected:0})
+                }
             }
         }
     }
@@ -1496,9 +1504,14 @@ fn main(){
         }
 
         if EVISCERATE{
+            let mut counter:usize = 0;
             for zone in EVISCERATE_ZONES{
                 // println!("Evisceration occurring at zone {}",zone);
-                zones[zone].eviscerate(&mut eviscerators,&mut hosts,time.clone());
+                let no:usize = hosts.clone().into_iter().filter(|x| x.motile == 0).collect::<Vec<_>>().len()/NO_OF_EVISCERATOR_SETS[counter];
+                for set_no in 0..NO_OF_EVISCERATOR_SETS[counter]{
+                    zones[zone].eviscerate(&mut eviscerators,&mut hosts,time.clone(),no,set_no);
+                }
+                counter+=1;
                 // println!("{} hosts have been eviscerated and infected so far",hosts.clone().into_iter().filter(|x| x.eviscerated && x.infected).collect::<Vec<_>>().len() as u64);
             }
         }
@@ -1688,11 +1701,14 @@ fn main(){
     // Eviscerator configuration
     writeln!(file, "\n## Eviscerator Configuration enabled:{}",EVISCERATE).expect("Failed to write to file");
     writeln!(file, "- Evisceration Zones: {:?}", EVISCERATE_ZONES).expect("Failed to write to file");   
-    writeln!(file, "- NUMBER OF EVISCERATORS: {:?}", NO_OF_EVISCERATORS).expect("Failed to write to file");   
+    writeln!(file, "- NUMBER OF EVISCERATORS PROBES: {:?}", NO_OF_EVISCERATORS).expect("Failed to write to file");   
+    writeln!(file, "- NUMBER OF EVISCERATOR MACHINES (each containing said amount of probes above): {:?}", NO_OF_EVISCERATOR_SETS).expect("Failed to write to file");   
     writeln!(file, "- EVISCERATOR DECAY: {} (Number of hosts an eviscerator has to go through before the infection is gone)", EVISCERATE_DECAY).expect("Failed to write to file");        
     writeln!(file, "- MISHAP: {} (Can hosts explode by accident during evisceration??)", MISHAP).expect("Failed to write to file");        
     writeln!(file, "- MISHAP_PROBABILITY: {} (At what probability does this accident happen??)", MISHAP_PROBABILITY).expect("Failed to write to file");        
     writeln!(file, "- MISHAP_RADIUS: {} (At what radius does this explosion occur - (currently fixed radius)??)", MISHAP_RADIUS).expect("Failed to write to file");        
+    if CLEAN_EVISCERATORS{writeln!(file, "EVISCERATORS ARE CLEANED IN THIS SIMULATION").expect("Failed to write to file");}        
+     
 
     // Transfer config
     writeln!(file, "\n## Transfer Configuration").expect("Failed to write to file");
