@@ -16,12 +16,23 @@ numbers_<-c()
 
 
 print(getwd())
+# Set the CRAN mirror
+cran_mirror <- "https://cran.r-project.org"  # Replace with a mirror of your choice if needed
+options(repos = cran_mirror)
+
+# Check if the package is installed
+if (!requireNamespace("echarty", quietly = TRUE)) {
+  # If not installed, attempt to install it
+  install.packages("echarty")
+}
+
 
 # Plot heatmap
 library(ggplot2)
 library(pandoc)
 library(plotly)
 library(echarts4r)
+library(echarty)
 library(echarts4r.assets)
 # library(echarty)
 library("ggplot2")
@@ -395,6 +406,8 @@ fig <- ggplotly(fig, dynamicTicks = TRUE)
 
 htmlwidgets::saveWidget(fig, "Histogram.html", selfcontained = TRUE)
 
+# write.csv(data,"fuckyouR.csv")
+# data<-read.csv("fuckyouR.csv", header = T)
 S <- data %>%
   group_by(interaction,zone,time) %>%
   summarise(count = n()) %>%
@@ -416,6 +429,7 @@ rm(fig)
 # write.csv(S_,"infections_sample.csv", row.names = FALSE)
 # write.csv(S,"extra.csv", row.names = FALSE)
 # write.csv(data,"full.csv", row.names = FALSE)
+saved_data<-data
 data <- S_ %>%
   mutate(dates = time) %>%
   select( -time) %>%
@@ -448,12 +462,12 @@ filled_data[is.na(filled_data$values), "values"] <- 0
 
 
 
-data <- S_%>%
-  mutate(dates = time) %>%
-  select( -time) %>%
-  rename(groups = interaction, values = count)
-
-data$dates <- as.numeric(data$dates)
+# data <- S_%>%
+#   mutate(dates = time) %>%
+#   select( -time) %>%
+#   rename(groups = interaction, values = count)
+# 
+# data$dates <- as.numeric(data$dates)
 
 # Create a template dataframe with all unique combinations of groups and dates
 all_combinations <- expand.grid(
@@ -534,6 +548,249 @@ fig<-e_morph(e1,e2,callback = cb) %>%
   )
 htmlwidgets::saveWidget(fig, "InfectionTypeDistribution.html", selfcontained = TRUE)
 rm(fig)
+print("What is saved data consisting of?1")
+print(names(saved_data))
+
+#Infection granular 
+S_ <- saved_data %>%
+  group_by(interaction,time,zone) %>%
+  summarise(count = n()) %>%
+  ungroup()
+data <- S_ %>%
+  mutate(dates = time) %>%
+  select( -time) %>%
+  mutate(groups = interaction, values = count)
+
+
+
+data$dates <- as.numeric(data$dates)
+
+# Create a template dataframe with all unique combinations of groups and dates
+all_combinations <- expand.grid(
+  groups = unique(data$groups),
+  dates = unique(data$dates)
+)
+
+
+# Merge the template with the existing data
+filled_data <- merge(all_combinations, data, by = c("groups", "dates"), all = TRUE)
+
+# Replace missing values with 0
+filled_data[is.na(filled_data$values), "values"] <- 0
+filled_data <- filled_data[order(filled_data$groups, filled_data$dates), ]
+
+# print("WHAT ARE THE COLUMN NAMES OF FILLED DATA?")
+# print(names(filled_data))
+
+time_seq<-seq(min(filled_data$dates),max(filled_data$dates),1)
+no_of_zones<-length(unique(filled_data$zone))
+
+add<-data.frame(groups = rep("marker",length(time_seq)*no_of_zones), dates = rep(time_seq,no_of_zones),zone = rep(unique(filled_data$zone),each = length(time_seq)),values = rep(1,length(time_seq)*no_of_zones))
+add<-subset(add,is.na(zone) == FALSE)
+
+dd<-rbind(filled_data %>% dplyr::select(-count) %>% dplyr::select(-interaction),add)
+
+dd_copy<-dd
+# print("WHAT ARE THE COLUMN NAMES OF DD?")
+# print(names(dd))
+
+# dd<-rbind(filled_data,add)
+setting <- list(show = T,type= "scroll",orient= "horizontal", pageButtonPosition= 'start',
+                right= "30%",top = 30,width = 470, icon = 'circle', align= 'left', height='85%')
+
+tmp <- dd |> group_by(zone,dates) |> summarize(ss= n()) |>
+  ungroup() |> inner_join(dd) |>  arrange(dates) |> group_by(zone) |> group_split()
+# fine-tune legends: data by interactions (called groups in this dataset)
+cns <- lapply(seq_along(tmp), \(i) { as.list(unique(tmp[[i]]$groups)) })
+xax <- lapply(seq_along(tmp), \(i) { as.list(unique(tmp[[i]]$dates)) })
+
+source('echarty_themes.R')
+
+gran<-subset(dd,is.na(zone) ==  FALSE) %>% 
+  mutate(dates = as.factor(dates)) %>% 
+  group_by(zone) |> 
+  ec.init(
+    xAxis = list(name = 'Hour',nameLocation = 'end',max = max(filled_data$dates),
+                 nameTextStyle = list(fontWeight ='bolder'),
+                 axisLabel = list(rotate = 346,width = 65,
+                                  overflow = 'truncate')),
+    yAxis = list(name = "Count",nameLocation = 'start',
+                 nameTextStyle = list(fontWeight ='bolder')),
+    dataZoom= list(type= 'slider',orient = 'vertical'
+                   ,left = '2%'),
+    tl.series = list(type  ='bar',stack = "grp",
+                     encode = list(x = 'dates',y = 'values'), groupBy= 'groups',
+                     emphasis= list(focus= 'series',
+                                    itemStyle=list(shadowBlur=10,
+                                                   shadowColor='rgba(0,0,0,0.5)'),
+                                    label= list(position= 'right',
+                                                rotate = 350,
+                                                show=TRUE)),
+                     title = list(list(left = "80%",top = "1%"),
+                                  list(text = "Infection pathway analytics", 
+                                       left = "10%", top = 10, textStyle = list(fontWeight = "normal", fontSize = 20),
+                                       text = "@ Zone", 
+                                       left = "10%", top = 17, textStyle = list(fontWeight = "normal", fontSize = 14))) ),
+    tooltip = list(show = T))|>
+  ec.upd({
+    options <- lapply(options, \(oo) {
+      dix <- oo$series[[1]]$datasetIndex  # from tl.series (bar)
+      # oo$series <- append(oo$series, 
+      #                     list(
+      #                       list(type='pie', name='pop.',
+      #                            datasetIndex= dix,
+      #                            encode= list(value='values', itemName='groups'), 
+      #                            center= c('15%', '25%'), radius= '11%', 
+      #                            label= list(show=T), labelLine= list(length=5, length2=0))
+      #                     ))
+      oo
+    })
+  }) %>% 
+  ec.upd({legend<-setting
+  options <- lapply(seq_along(options), \(i) {  
+    options[[i]]$legend$data <- cns[[i]]  # fine-tune legends: data by interactions
+    options[[i]]$xAxis$data <- xax[[i]] 
+    options[[i]] 
+  })
+  }) %>% 
+  ec.theme("something",westeros3)
+
+htmlwidgets::saveWidget(gran, "InfectionTypeDistribution_Granular.html", selfcontained = TRUE)
+
+
+# S_rearranged <- saved_data %>%
+#   mutate(dates = time) %>%
+#   select( -time) %>%
+#   rename(groups = interaction, values = count)
+# 
+# S_rearranged<-saved_data %>%
+#   group_by(interaction,time,zone) %>%
+#   summarise(count = n()) %>%
+#   ungroup() %>%
+#   mutate(dates = time) %>%
+#   select( -time) %>%
+#   rename(groups = interaction, values = count)
+# 
+# S_rearranged<-S_
+# 
+# 
+# data<-data_copy
+
+# Convert 'dates' column to numeric (if it's not already numeric)
+# data$dates <- as.numeric(data$dates)
+# 
+# # Create a template dataframe with all unique combinations of groups and dates
+# all_combinations <- expand.grid(
+#   groups = unique(data$groups),
+#   dates = unique(data$dates)
+# )
+# 
+# 
+# # Merge the template with the existing data
+# filled_data <- merge(all_combinations, data, by = c("groups", "dates"), all = TRUE)
+# 
+# # print("[DIAG] HERE?0")
+# # print(names(filled_data))
+# 
+# # Replace missing values with 0
+# filled_data[is.na(filled_data$values), "values"] <- 0
+# 
+
+
+# print("[DIAG] HERE?")
+# print(names(filled_data))
+
+# filled_data <- filled_data %>%
+
+#######################################
+#   group_by(zone) %>%
+#   complete(dates = seq(min(dates), max(dates), by = 1), fill = list(groups = 'marker', values = 1)) %>%
+#   ungroup()
+filled_data<-dd_copy
+length_per_zone<-length(seq(min(filled_data$dates),max(filled_data$dates),1))
+tot_length<-length_per_zone*length(unique(filled_data$zone))
+
+add<-data.frame(groups = rep('marker',tot_length),dates = rep(seq(min(filled_data$dates),max(filled_data$dates),1),length(unique(filled_data$zone))),zone = rep(unique(filled_data$zone),each = length_per_zone),values = rep(1,tot_length))
+
+# print("[DIAG] HERE?2")
+# print(names(filled_data))
+# print("What about add?")
+# print(names(add))
+
+filled_data<-rbind(filled_data,add)
+# filled_data<-dd
+
+colors <- c('#516b91','#93b7e3','#edafda','#3D4856','#a5e7f0','#cbb0e3','#3F4756','#009D93','#0095FA','#7D6643','#6363A4','#00498B','#EDAB98')
+lsetting <- list(type= "scroll",orient= "horizontal",
+                 right= "30%",left = "50%",top= 30, icon= 'circle')
+plist <- list(type='pie', name='group',
+              center= c('77%', '30%'), radius= '24%', 
+              label= list(show=T), labelLine= list(length=6, length2=0))
+
+
+# print("[DIAG] HERE?")
+# rm(options)
+filled_data <- na.omit(filled_data) 
+
+print("[DIAG] HERE?3")
+print(names(filled_data))
+
+udg <- unique(filled_data$groups)
+options <- list()
+zones <- sort(na.omit(unique(filled_data$zone)))
+pie <- list(type='pie', name='group',
+            center= c('77%', '30%'), radius= '24%', 
+            label= list(show=T), labelLine= list(length=6, length2=0))
+df <- filled_data |> count(zone, groups, dates, values) |> 
+  mutate(colr= colors[match(groups, udg)])
+zz <- unique(df$zone)
+iz <- 1
+# print("Got to csv")
+# write.csv(filled_data,"ExampleToShow.csv", row.names = FALSE)
+
+print("Original data names for df are")
+print(names(df))
+
+#Try thing for granular 2 plot
+result<-tryCatch({
+  max_y<-max((filled_data%>% group_by(zone,dates) %>% summarize(no = sum(values)))$no)
+  thing<-filled_data |> group_by(zone) |> ec.init( color=colors,
+                                 yAxis = list(max=max_y),
+                                 tooltip= list(s=T), xAxis= list(type='category'),
+                                 emphasis= list(focus= 'series',
+                                                itemStyle= list(shadowBlur=10, shadowColor='rgba(0,0,0,0.5)'),
+                                                label= list(position= 'right', rotate = 350, show=T)),
+                                 dataZoom= list(type= 'slider', orient= 'vertical', left= '2%'),
+                                 title= list(text = "Infection pathway analytics", 
+                                             left= "10%", top= 10, textStyle= list(fontSize = 20)),
+                                 timeline= list(axisType= 'category'),
+                                 series.param= list(type= 'bar', stack='grp', 
+                                                    encode= list(x='dates', y='values'), groupBy= 'groups' )
+)  |> 
+  ec.upd({
+    options <- lapply(options, \(oo) {  # by zone
+      # serie name has been preset to 'groups' column
+      oo$series <- lapply(oo$series, \(ss) {
+        ss$itemStyle= list(color= colors[match(ss$name, udg)])
+        ss
+      })
+      tmp <- df |> filter(zone==zz[iz]) |> group_by(groups,colr) |> 
+        summarize(value= sum(values)) |> rename(name= groups)
+      tmp <- ec.data(tmp, 'names')   # convert data.frame to list
+      tmp <- lapply(tmp, \(rr) {     # change colr to itemStyle
+        rr$itemStyle <- list(color= rr$colr); rr$colr <- NULL; rr
+      })
+      pie$data <- lsetting$data <- tmp    # same colors for legend and pie
+      oo$legend <- lsetting
+      oo$series <- append(oo$series, list(pie))
+      iz <<- iz+1
+      oo
+    })
+  })  
+  htmlwidgets::saveWidget(thing, "InfectionTypeDistribution_Granular2.html", selfcontained = TRUE)
+}, error = function(e){
+  print("was not able to run the additional granular generating html code")
+})
 
 #library(pandoc)
 #Get dem custom fonts
@@ -650,6 +907,83 @@ fig_dots <- data %>%
 # Save the animation
 htmlwidgets::saveWidget(fig_dots, "scatter.html", selfcontained = TRUE)
 
+
+
+
+
+#Echarty impl
+library(reshape)
+library(echarty)
+names(data)
+
+names(data)<-c("%Contaminated","Total Hosts","No contaminated",
+               "%Infected","Total Hosts(repeated)","No infected",
+               "%Eggs Infected","Eggs Amt","Eggs Amt Infected",
+               "%Colonized","No Colonized","%Faeces infected",
+               "Faeces Amt","Faeces Amt Infected","Zone","TimeUnit")
+
+df<-melt(data,c("Total Hosts","No contaminated","Total Hosts(repeated)","No infected","Eggs Amt","Eggs Amt Infected",
+                "No Colonized","Faeces Amt","Faeces Amt Infected","TimeUnit","Zone"))
+
+setting <- list(show = T,type= "scroll",orient= "horizontal", pageButtonPosition= 'start',
+                right= "30%",top = 30,width = 470, icon = 'circle', align= 'left', height='85%')
+tmp <- df |> group_by(Zone) |> group_split()
+cns <- lapply(seq_along(tmp), \(i) { as.list(unique(tmp[[i]]$variable)) })
+
+
+#Standardize
+
+
+hosts<-max((df$`Total Hosts`))
+eggs<-max(df$`Eggs Amt`)
+faeces<-max(df$`Faeces Amt`)
+
+out<-df %>% mutate(value = round((value),1))%>%
+  group_by(Zone) |> 
+  ec.init(
+    title= list(text= 'Temporal Trends: Contamination/Infection/Colonization Rates Across Hosts, Eggs, and Faeces '),
+    xAxis = list(name = 'Time',nameLocation = 'start',
+                 nameTextStyle = list(fontWeight ='bolder'),
+                 axisLabel = list(rotate = 346,width = 65,
+                                  overflow = 'truncate')),
+    yAxis = list(max = 100,name = "% compromised",nameLocation = 'start',
+                 nameTextStyle = list(fontWeight ='bolder')),
+    dataZoom= list(list(type= 'slider',orient = 'vertical'
+                        ,left = '2%'),list(type= 'slider',orient = 'horizontal'
+                                           ,right = '2%',top='1%', width = '20%')),
+    tl.series = list(type  ='line',
+                     encode = list(x = 'TimeUnit',y = 'value'), groupBy= 'variable',
+                     symbolSize = ec.clmn(sprintf("function(v, pp) {
+                     var minVal = 0;       
+                     var maxsize = 25;
+                     if (['%%Contaminated', '%%Infected', '%%Colonized'].includes(pp.seriesName))
+                       return (pp.data[2] - minVal) / (%f - minVal) *maxsize;
+                     else if (['%%Eggs Infected'].includes(pp.seriesName))
+                       return (pp.data[4] - minVal) / (%f - minVal) * maxsize;
+                     else if (['%%Faeces infected'].includes(pp.seriesName))
+                       return (pp.data[7] - minVal) / (%f - minVal) * maxsize;
+                     else
+                       return 90;
+                   }",hosts,eggs,faeces)),
+                     emphasis= list(focus= 'series',
+                                    itemStyle=list(shadowBlur=10,
+                                                   shadowColor='rgba(0,0,0,0.5)'),
+                                    label= list(position= 'right',
+                                                rotate = 350,
+                                                show=TRUE))),
+    tooltip = list(show = T, trigger = 'axis'))|>
+  ec.upd({legend<-setting
+  options <- lapply(seq_along(options), \(i) {  
+    tita<-title
+    tita$text <- paste(tita$text, options[[i]]$title$text)
+    options[[i]]$title <- tita   # here we set a title for each timeline step    
+    options[[i]]$legend$data <- cns[[i]]  # fine-tune legends: data by continent
+    options[[i]] 
+  })
+  }) |> ec.theme("thing",westeros)
+
+
+htmlwidgets::saveWidget(out, "e_scatterplot.html", selfcontained = TRUE)
 
 
 # #Collection
