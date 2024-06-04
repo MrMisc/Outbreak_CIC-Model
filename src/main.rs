@@ -416,7 +416,7 @@ impl Zone_3D{
                     println!("{} {} {} {} {} {}",host.x,host.y,host.z,13,time,host.zone);
                 }                
                 let mut eviscerator:&mut Eviscerator = evs[j%step_size];
-                if host.infected && host.zone == eviscerator.zone && !host.eviscerated{
+                if (host.infected || host.contaminated) && host.zone == eviscerator.zone && !host.eviscerated{
                     eviscerator.infected = true;
                     // println!("EVISCERATOR HAS BEEN INFECTED AT TIME {} of this host stock entering zone!",host.time);
                     eviscerator.number_of_times_infected = 0;
@@ -483,12 +483,12 @@ pub struct host{
 }
 //Note that if you want to adjust the number of zones, you have to, in addition to adjusting the individual values to your liking per zone, also need to change the slice types below!
 //Resolution
-const STEP:[[usize;3];2] = [[4,4,4],[2,2,2]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
+const STEP:[[usize;3];4] = [[4,4,4],[2,2,2],[2,2,2],[2,2,2]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
 const HOUR_STEP: f64 = 4.0; //Number of times hosts move per hour
-const LENGTH: usize =13; //How long do you want the simulation to be?
+const LENGTH: usize =20; //How long do you want the simulation to be?
 //Infection/Colonization module
 // ------------Do only colonized hosts spread disease or do infected hosts spread
-const HOST_0:usize = 1000;
+const HOST_0:usize = 1134; 
 const COLONIZATION_SPREAD_MODEL:bool = true;
 const TIME_OR_CONTACT:bool = true; //true for time -> contact uses number of times infected to determine colonization
 const IMMORTAL_CONTAMINATION:bool = false;
@@ -505,7 +505,7 @@ const RECOVERY_RATE:[f64;2] = [0.002,0.008]; //Lower and upper range that increa
 
 const NO_TO_COLONIZE:u32 = 100;
 //Contamination rules | Different from infections, which are taken to only be transmittable via feeding of infected faeces 
-const HOSTTOHOST_CONTACT_SPREAD:bool = true; // Host -> Host, Host -> Faeces and Host -> Eggs via spatial proximity
+const HOSTTOHOST_CONTACT_SPREAD:bool = false; // Host -> Host, Host -> Faeces and Host -> Eggs via spatial proximity
 const HOSTTOEGG_CONTACT_SPREAD:bool = true;
 const HOSTTOFAECES_CONTACT_SPREAD:bool = false;
 const EGGTOHOST_CONTACT_SPREAD:bool = true;
@@ -514,16 +514,16 @@ const EGGTOFAECES_CONTACT_SPREAD:bool = true;
 const FAECESTOEGG_CONTACT_SPREAD:bool = true;
 // const INITIAL_COLONIZATION_RATE:f64 = 0.47; //Probability of infection, resulting in colonization -> DAILY RATE ie PER DAY
 //Space
-const LISTOFPROBABILITIES:[f64;2] = [0.9;2]; //Probability of transfer of disease per zone - starting from zone 0 onwards
-const CONTACT_TRANSMISSION_PROBABILITY:[f64;2] = [1.0;2];
-const GRIDSIZE:[[f64;3];2] = [[400.0,400.0,8.0],[10000.0,2.0,2.0]];
+const LISTOFPROBABILITIES:[f64;4] = [0.9;4]; //Probability of transfer of disease per zone - starting from zone 0 onwards
+const CONTACT_TRANSMISSION_PROBABILITY:[f64;4] = [1.0;4];
+const GRIDSIZE:[[f64;3];4] = [[240.0,400.0,28.0],[28000.0,2.0,2.0],[28000.0,2.0,2.0],[28000.0,2.0,2.0]]; 
 const MAX_MOVE:f64 = 10.0;
 const MEAN_MOVE:f64 = 4.0;
 const STD_MOVE:f64 = 3.0; // separate movements for Z config
 const MAX_MOVE_Z:f64 = 1.0;
 const MEAN_MOVE_Z:f64 = 2.0;
 const STD_MOVE_Z:f64 = 4.0;
-const NO_OF_HOSTS_PER_SEGMENT:[u64;2] = [1,1];
+const NO_OF_HOSTS_PER_SEGMENT:[u64;4] = [1,1,1,1];
 //Anchor points
 //Vertical perches
 const PERCH:bool = false;
@@ -535,7 +535,7 @@ const DEPERCH_FREQ:f64 = 0.4; //probability that a host when already on perch, d
 const NEST:bool = false;
 const NESTING_AREA:f64 = 0.25; //ratio of the total area of segment in of which nesting area is designated - min x y z side
 //Space --- Segment ID
-const TRANSFERS_ONLY_WITHIN:[bool;2] = [true,false]; //Boolean that informs simulation to only allow transmissions to occur WITHIN segments, not between adjacent segments
+const TRANSFERS_ONLY_WITHIN:[bool;4] = [true,false,false,false]; //Boolean that informs simulation to only allow transmissions to occur WITHIN segments, not between adjacent segments
 //Fly option
 const FLY:bool = false;
 const FLY_FREQ:u8 = 3; //At which Hour step do the  
@@ -572,12 +572,13 @@ const SLAUGHTER_POINT:usize = 0; //Somewhere in zone {}, the hosts are slaughter
 //Evisceration parameters
 //We assume that all hosts are isolated from the rest of the hosts in the zone per evisceration "unit"
 const EVISCERATE:bool = true;
-const EVISCERATE_ZONES:[usize;1] = [1]; //Zone in which evisceration takes place
+const EVISCERATE_ZONES:[usize;3] = [1,2,3]; //Zone in which evisceration takes place
 const EVISCERATE_DECAY:u8 = 5;
-const NO_OF_EVISCERATORS:[usize;1] = [16];
-const NO_OF_EVISCERATOR_SETS:[usize;1] = [5];
+const NO_OF_EVISCERATORS:[usize;3] = [28,28,28];
+const NO_OF_EVISCERATOR_SETS:[usize;3] = [1,1,1];
 const EVISCERATOR_TO_HOST_PROBABILITY_DECAY:f64 = 0.25;   //Multiplicative decrease of  probability - starting from LISTOFPROBABILITIES value 100%->75% (if 0.25 is value)->50% ->25%->0%
 const CLEAN_EVISCERATORS:bool = false; //Be sure to set the hours when eviscerators are manually cleaned yourself (Might need to run simulation to figure out when evisceraors get  used at all)
+const SERIAL_EVISCERATION:bool = true; //Are the hosts going through multiple eviscerations? (ideally via consecutive zones or through a separately implemented logic)
 
 const CURVATURE:bool = true;
 //We are assuming that when eviscerators are brought into a circle, the distance between them is maintained - inevitably determining the radius of the curvature
@@ -586,10 +587,10 @@ const PI:f64 = std::f64::consts::PI;
 const ANGLE_MAXIMA:f64 = 0.25*PI; //Maximum angular displacement, above which, mishaps cannot travel anyway
 //Evisceration -------------> Mishap/Explosion parameters
 const MISHAP:bool = true;
-const MISHAP_PROBABILITY:f64 = 0.3;
+const MISHAP_PROBABILITY:f64 = 0.01;
 const MISHAP_RADIUS:f64 = 10.0; //Must be larger than the range_x of the eviscerate boxes for there to be any change in operation
 //Transfer parameters
-const ages:[f64;2] = [0.01,0.9]; //Time hosts are expected spend in each region minimally
+const ages:[f64;4] = [0.01,1.0,1.0,1.0]; //Time hosts are expected spend in each region minimally
 //Collection
 const AGE_OF_HOSTCOLLECTION: f64 = 20.0*24.0;  //For instance if you were collecting hosts every 15 days
 const COLLECT_DEPOSITS: bool = true;
@@ -706,6 +707,7 @@ impl host{
         });
         for host in filtered_vector.iter_mut().take(n){
             host.infected = true;
+            host.contaminated = true; //turn this off if you don't want to consider an infected host also a physically contaminated host.
             if colonized{host.colonized = true;}
             println!("{} {} {} {} {} {}",host.x,host.y,host.z,0,0.0,host.zone);
         }
@@ -757,6 +759,11 @@ impl host{
                         x.prob1 = LISTOFPROBABILITIES[x.zone];
                         x.prob2 = CONTACT_TRANSMISSION_PROBABILITY[x.zone];
                         // println!("Going to deduct capacity @  zone {} with a capacity of {}", zone,zone_toedit.clone().zone);
+                        //SERIAL EVISCERATION LOGIC - if the host is to get eviscerated AGAIN in another zone, SERIAL EVISCERATION needs to beset to true to RESET the eviscerated status
+                        if SERIAL_EVISCERATION && x.eviscerated{
+                            x.eviscerated = false;
+                        }
+
                         // println!("Apparently think that zone {} has {} space left",zone,space[zone].capacity);
                         // println!("Capacity for zone {} is now:{} - pre addition",zone,space[zone].capacity);
                         let vars:[u64;7] =  space[zone].add();
