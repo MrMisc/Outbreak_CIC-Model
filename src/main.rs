@@ -411,19 +411,19 @@ impl Zone_3D{
                 // Compare and update the elements in the relative vector of eviscerators length
                 if j_ele >= start && j_ele <= end && !fail {
                     //THIS SECTION HERE IS WHERE THE MISHAP explosions are applied RIGHT BEFORE the eviscerators 
-                    host.infected = true;
-                    host.contaminated = true;
+                    host.infected = true; //This is taking it that the moment a chicken's infected guts touch another chicken's, it's been contaminated at 100% chance, so we just set to true given the prevailing conditions have been met
+                    host.contaminated = true; //infected = contaminated
                     println!("{} {} {} {} {} {}",host.x,host.y,host.z,13,time,host.zone);
                 }                
                 let mut eviscerator:&mut Eviscerator = evs[j%step_size];
-                if (host.infected || host.contaminated) && host.zone == eviscerator.zone && !host.eviscerated{
+                if (host.infected || host.contaminated) && host.zone == eviscerator.zone && !host.eviscerated && host.transfer(CONTACT_TRANSMISSION_PROBABILITY[host.zone]){
                     eviscerator.infected = true;
                     // println!("EVISCERATOR HAS BEEN INFECTED AT TIME {} of this host stock entering zone!",host.time);
                     eviscerator.number_of_times_infected = 0;
                     println!("{} {} {} {} {} {}",host.x,host.y,host.z,12,time,host.zone);
                 }else if eviscerator.infected && host.zone == eviscerator.zone && !host.eviscerated{
                     // println!("Confirming that an eviscerator is infected in zone {}",eviscerator.zone);
-                    host.infected = host.transfer(limits::max(0.0,1.0-(eviscerator.number_of_times_infected as f64)*EVISCERATOR_TO_HOST_PROBABILITY_DECAY)) || host.infected;
+                    host.infected = host.transfer(limits::max(0.0,(1.0-(eviscerator.number_of_times_infected as f64)*EVISCERATOR_TO_HOST_PROBABILITY_DECAY)*CONTACT_TRANSMISSION_PROBABILITY[host.zone])) || host.infected;
                     host.contaminated = host.infected || host.contaminated; //In evisceration process, an eviscerator infecting a chicken is equivalent to contaminating as well simultaneously!
                     eviscerator.number_of_times_infected += 1;
                     if host.infected{
@@ -488,7 +488,7 @@ const HOUR_STEP: f64 = 4.0; //Number of times hosts move per hour
 const LENGTH: usize =20; //How long do you want the simulation to be?
 //Infection/Colonization module
 // ------------Do only colonized hosts spread disease or do infected hosts spread
-const HOST_0:usize = 1134; 
+const HOST_0:usize = 368; //0.876% of population infected 
 const COLONIZATION_SPREAD_MODEL:bool = true;
 const TIME_OR_CONTACT:bool = true; //true for time -> contact uses number of times infected to determine colonization
 const IMMORTAL_CONTAMINATION:bool = false;
@@ -515,7 +515,7 @@ const FAECESTOEGG_CONTACT_SPREAD:bool = true;
 // const INITIAL_COLONIZATION_RATE:f64 = 0.47; //Probability of infection, resulting in colonization -> DAILY RATE ie PER DAY
 //Space
 const LISTOFPROBABILITIES:[f64;4] = [0.9;4]; //Probability of transfer of disease per zone - starting from zone 0 onwards
-const CONTACT_TRANSMISSION_PROBABILITY:[f64;4] = [1.0;4];
+const CONTACT_TRANSMISSION_PROBABILITY:[f64;4] = [0.35;4];
 const GRIDSIZE:[[f64;3];4] = [[240.0,400.0,28.0],[28000.0,2.0,2.0],[28000.0,2.0,2.0],[28000.0,2.0,2.0]]; 
 const MAX_MOVE:f64 = 10.0;
 const MEAN_MOVE:f64 = 4.0;
@@ -1530,7 +1530,7 @@ fn main(){
         }        
 
         //Periodically cleaning eviscerators
-        if (time==3 || time==5 || time==7) && CLEAN_EVISCERATORS{
+        if (time==8 || time==11) && CLEAN_EVISCERATORS{
             // println!("Cleaning eviscerators!");
             eviscerators.iter_mut().for_each(|mut ev|{
                 ev.infected = false;
