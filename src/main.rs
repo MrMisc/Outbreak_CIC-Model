@@ -152,10 +152,12 @@ impl Segment_3D{
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Eviscerator{
     zone:usize,
     set:usize,
     infected: bool,
+    chronology: usize,
     number_of_times_infected:u8
 }
 
@@ -243,12 +245,71 @@ impl Zone_3D{
             }
         }
     }
-    fn eviscerate(&mut self,eviscerators:&mut Vec<Eviscerator>, vector1:&mut Vec<host>,time:usize,no_to_do:usize, set:usize){
-        //grab hosts that are inside the zone and not eviscerated and actually the previously motile hosts
-        let mut vector: Vec<&mut host> = vector1.iter_mut().filter(|host| !host.eviscerated && host.zone == self.zone && host.motile == 0).take(no_to_do).collect();
-        
-        let vector_length:usize = vector.len();
+    fn multi_eviscerate(
+        &mut self,
+        eviscerators: &mut Vec<Eviscerator>,
+        vector1: &mut Vec<host>,
+        time: usize,
+        counter:usize,
+        no_to_do: usize,
+        line_no: usize,
+    ) {
+        // Sort eviscerators by chronology
+        eviscerators.sort_by_key(|ev| ev.chronology);
+        vector1.sort_by(|a,b| a.origin_x.cmp(&b.origin_x));
+        let mut processed_eviscerators = Vec::new(); // Vector to hold processed eviscerators
+        // println!("Zone of the hosts here are ")
+        for line in 0..line_no{
+            let mut vector: Vec<&mut host> = vector1.iter_mut().filter(|host| !host.eviscerated && host.zone == self.zone && host.motile == 0).take(no_to_do).collect();
+            for chronology in 0..=NO_OF_EVISCERATORS-1 {
+                let mut eviscerators_for_this_chronology = eviscerators
+                    .iter()
+                    .filter(|ev| ev.chronology == chronology && ev.set == line && ev.zone == self.zone)
+                    .cloned()
+                    .collect::<Vec<_>>();
 
+                // println!("We have {} probes on this eviscerator to process this, and {} of them are contaminated",eviscerators_for_this_chronology.clone().len() as u64 ,eviscerators_for_this_chronology.clone().into_par_iter().filter(|x| x.infected).collect::<Vec<_>>().len() as u64);
+                // println!("We have {} contaminated hosts before processing via {}th eviscerator",vector1.clone().into_par_iter().filter(|x| x.motile == 0 && x.contaminated).collect::<Vec<_>>().len() as u64,chronology);
+                // Process hosts with eviscerators of the current chronology
+                let evis_after = self.eviscerate(&mut eviscerators_for_this_chronology, &mut vector, time, line);
+
+                // Record the processed eviscerators
+                processed_eviscerators.extend_from_slice(&evis_after);
+                // println!("We have {} contaminated hosts after processing via {}th eviscerator",vector1.clone().into_par_iter().filter(|x| x.motile == 0 && x.contaminated).collect::<Vec<_>>().len() as u64,chronology);
+                // Optionally, update vector1 with the processed hosts
+                // vector1 = processed_hosts;
+            }
+            for host in vector.iter_mut() {
+                host.eviscerated = true; // Assuming 'eviscerated' is a boolean field in your Host struct
+            }                  
+        }
+
+
+
+        // Update the original eviscerators vector with the processed ones
+        // println!("Eviscerators before {:?}", eviscerators.clone().into_par_iter().filter(|x| x.infected).collect::<Vec<_>>().len() as u64);
+        *eviscerators = processed_eviscerators.clone();
+        // println!("Eviscerators after {:?}",processed_eviscerators.clone().into_par_iter().filter(|x| x.infected).collect::<Vec<_>>().len() as u64);
+  
+    }
+    
+
+    fn eviscerate(&mut self,evs:&mut Vec<Eviscerator>, vector:&mut Vec<&mut host>,time:usize, set:usize)->Vec<Eviscerator>{
+        //SETUP
+        // println!("Are we even eviscerating?");
+        // println!("Current zone is {}", self.zone);
+        // println!("Number to do is {}", no_to_do);
+        // let mut vector: Vec<&mut host> = vector1.iter_mut().filter(|host| !host.eviscerated && host.zone == self.zone && host.motile == 0).take(no_to_do).collect();
+        // let mut vector: Vec<&mut host> = vector1.iter_mut().filter(|host| !host.eviscerated && host.motile == 0).take(no_to_do).collect();
+        // println!("Length of relevant vector hosts is {}", vector.len());
+        // let cloned_vector: Vec<host> = vector.iter().map(|host_ref| host_ref.clone()).collect();
+        // println!("We have {} hosts before to eviscerate, {} of them are contaminated",vector.iter().filter(|&x| {
+        //     !x.eviscerated
+        // }).collect::<Vec<_>>().len(), vector.iter().filter(|&x| {
+        //     x.contaminated
+        // }).collect::<Vec<_>>().len());
+
+        let vector_length:usize = vector.len();
         let no_infected : usize = vector.iter().filter(|&x| {
             x.infected
         }).collect::<Vec<_>>().len();
@@ -256,10 +317,11 @@ impl Zone_3D{
             !x.infected
         }).collect::<Vec<_>>().len();
         // println!("[BEFORE] : {} of {} hosts in this evisceration process, at zone {} are not-infected, while {} are infected",no_not_infected,vector_length,self.zone, no_infected);
+
         //Filter out eviscerators that are for the zone in particular
-        let mut evs: Vec<&mut Eviscerator> = eviscerators.iter_mut().filter(|ev| ev.zone == self.zone && ev.set == set).collect();
+        // let mut evs: Vec<&mut Eviscerator> = eviscerators.iter_mut().filter(|ev| ev.zone == self.zone && ev.set == set).collect();
         // Define the step size for comparison
-        let step_size = NO_OF_EVISCERATORS[self.zone-1];
+        let step_size = NO_OF_PROBES[self.zone-1];
 
         fn radialise(ang:f64, dist:f64,d:f64)->bool{
             //Function to convert the radial distance between 2 points into a linear distance (minimum distance between these 2 points, and compare it )
@@ -359,8 +421,8 @@ impl Zone_3D{
         }
         
         // --------
-        // let number_of_sets:usize = NO_OF_EVISCERATOR_SETS[self.zone-1];
-        //Evisceration spread
+        // let number_of_sets:usize = NO_OF_LINES[self.zone-1];
+        //EXECUTION
         vector.sort_by(|a,b| a.origin_x.cmp(&b.origin_x));
         // Create an iterator to loop over the vector in step_size chunks
         let mut chunk_iter = vector.chunks_exact_mut(step_size);
@@ -415,7 +477,7 @@ impl Zone_3D{
                     host.contaminated = true; //infected = contaminated
                     println!("{} {} {} {} {} {}",host.x,host.y,host.z,13,time,host.zone);
                 }                
-                let mut eviscerator:&mut Eviscerator = evs[j%step_size];
+                let mut eviscerator:&mut Eviscerator = &mut evs[j%step_size];
                 if (host.infected || host.contaminated) && host.zone == eviscerator.zone && !host.eviscerated && host.transfer(CONTACT_TRANSMISSION_PROBABILITY[host.zone]){
                     eviscerator.infected = true;
                     // println!("EVISCERATOR HAS BEEN INFECTED AT TIME {} of this host stock entering zone!",host.time);
@@ -434,20 +496,19 @@ impl Zone_3D{
                 if eviscerator.number_of_times_infected>=EVISCERATE_DECAY{
                     eviscerator.infected = false;
                 }
-                host.eviscerated = true;
+                // host.eviscerated = true;
                 // if MISHAP && host.infected && ind.contains(&j) && MISHAP_RADIUS>minimum_distance && roll(MISHAP_PROBABILITY){
                 // }
             }
             global_index += step_size;
         }
+        // println!("We have {} contaminated hosts after processing",vector1.clone().into_par_iter().filter(|x| x.motile == 0 && x.contaminated).collect::<Vec<_>>().len() as u64);        
+        let cloned_eviscerators: Vec<Eviscerator> = evs.iter().cloned().collect();
 
+        // Return the cloned vector
+        cloned_eviscerators
 
-        // println!("[AFTER] : {} of {} hosts in this evisceration process, at zone {} are not-infected, while {} are infected",no_not_infected,vector_length,self.zone, no_infected);
-
-
-
-
-    }    
+    }  
 }
 
 #[derive(Clone)]
@@ -483,15 +544,17 @@ pub struct host{
 }
 //Note that if you want to adjust the number of zones, you have to, in addition to adjusting the individual values to your liking per zone, also need to change the slice types below!
 //Resolution
-const STEP:[[usize;3];4] = [[4,4,4],[2,2,2],[2,2,2],[2,2,2]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
+const STEP:[[usize;3];2] = [[4,4,4],[2,2,2]];  //Unit distance of segments ->Could be used to make homogeneous zoning (Might not be very flexible a modelling decision)
 const HOUR_STEP: f64 = 4.0; //Number of times hosts move per hour
 const LENGTH: usize =20; //How long do you want the simulation to be?
 //Infection/Colonization module
 // ------------Do only colonized hosts spread disease or do infected hosts spread
-const HOST_0:usize = 368; //0.876% of population infected 
+const PERCENT_INF:f64 = 8.36/100.0;
+const TOTAL_NO_OF_HOSTS:f64 = 42000.0;
+const HOST_0:usize = (PERCENT_INF*TOTAL_NO_OF_HOSTS) as usize; //8.36% of population infected 
 const COLONIZATION_SPREAD_MODEL:bool = true;
 const TIME_OR_CONTACT:bool = true; //true for time -> contact uses number of times infected to determine colonization
-const IMMORTAL_CONTAMINATION:bool = false;
+const IMMORTAL_CONTAMINATION:bool = true;
 //If you want to use a truncated normal distribution for time to go from infected to colonized ...
 const TIME_TO_COLONIZE:[f64;2] = [5.0*24.0, 11.6*24.0]; //95% CI for generation time
 const COLONIZE_TIME_MAX_OVERRIDE:f64 = 26.0*24.0;
@@ -514,16 +577,16 @@ const EGGTOFAECES_CONTACT_SPREAD:bool = true;
 const FAECESTOEGG_CONTACT_SPREAD:bool = true;
 // const INITIAL_COLONIZATION_RATE:f64 = 0.47; //Probability of infection, resulting in colonization -> DAILY RATE ie PER DAY
 //Space
-const LISTOFPROBABILITIES:[f64;4] = [0.9;4]; //Probability of transfer of disease per zone - starting from zone 0 onwards
-const CONTACT_TRANSMISSION_PROBABILITY:[f64;4] = [0.35;4];
-const GRIDSIZE:[[f64;3];4] = [[240.0,400.0,28.0],[28000.0,2.0,2.0],[28000.0,2.0,2.0],[28000.0,2.0,2.0]]; 
+const LISTOFPROBABILITIES:[f64;2] = [0.9;2]; //Probability of transfer of disease per zone - starting from zone 0 onwards
+const CONTACT_TRANSMISSION_PROBABILITY:[f64;2] = [0.33;2];
+const GRIDSIZE:[[f64;3];2] = [[4.0*TOTAL_NO_OF_HOSTS,4.0,4.0],[28000.0,2.0,2.0]]; 
 const MAX_MOVE:f64 = 10.0;
 const MEAN_MOVE:f64 = 4.0;
 const STD_MOVE:f64 = 3.0; // separate movements for Z config
 const MAX_MOVE_Z:f64 = 1.0;
 const MEAN_MOVE_Z:f64 = 2.0;
 const STD_MOVE_Z:f64 = 4.0;
-const NO_OF_HOSTS_PER_SEGMENT:[u64;4] = [1,1,1,1];
+const NO_OF_HOSTS_PER_SEGMENT:[u64;2] = [1,1];
 //Anchor points
 //Vertical perches
 const PERCH:bool = false;
@@ -535,7 +598,7 @@ const DEPERCH_FREQ:f64 = 0.4; //probability that a host when already on perch, d
 const NEST:bool = false;
 const NESTING_AREA:f64 = 0.25; //ratio of the total area of segment in of which nesting area is designated - min x y z side
 //Space --- Segment ID
-const TRANSFERS_ONLY_WITHIN:[bool;4] = [true,false,false,false]; //Boolean that informs simulation to only allow transmissions to occur WITHIN segments, not between adjacent segments
+const TRANSFERS_ONLY_WITHIN:[bool;2] = [true,false]; //Boolean that informs simulation to only allow transmissions to occur WITHIN segments, not between adjacent segments
 //Fly option
 const FLY:bool = false;
 const FLY_FREQ:u8 = 3; //At which Hour step do the  
@@ -572,13 +635,15 @@ const SLAUGHTER_POINT:usize = 0; //Somewhere in zone {}, the hosts are slaughter
 //Evisceration parameters
 //We assume that all hosts are isolated from the rest of the hosts in the zone per evisceration "unit"
 const EVISCERATE:bool = true;
-const EVISCERATE_ZONES:[usize;3] = [1,2,3]; //Zone in which evisceration takes place
+const EVISCERATE_ZONES:[usize;1] = [1]; //Zone in which evisceration takes place
 const EVISCERATE_DECAY:u8 = 5;
-const NO_OF_EVISCERATORS:[usize;3] = [28,28,28];
-const NO_OF_EVISCERATOR_SETS:[usize;3] = [1,1,1];
+const NO_OF_PROBES:[usize;1] = [28;1]; //no of probes per eviscerator
+const LINE_NO: usize = 1;
+const NO_OF_LINES:[usize;1] = [LINE_NO;1];
+const NO_OF_EVISCERATORS:usize = 3;
 const EVISCERATOR_TO_HOST_PROBABILITY_DECAY:f64 = 0.25;   //Multiplicative decrease of  probability - starting from LISTOFPROBABILITIES value 100%->75% (if 0.25 is value)->50% ->25%->0%
 const CLEAN_EVISCERATORS:bool = false; //Be sure to set the hours when eviscerators are manually cleaned yourself (Might need to run simulation to figure out when evisceraors get  used at all)
-const SERIAL_EVISCERATION:bool = true; //Are the hosts going through multiple eviscerations? (ideally via consecutive zones or through a separately implemented logic)
+const SERIAL_EVISCERATION:bool = false; //Are the hosts going through multiple eviscerations? (ideally via consecutive zones or through a separately implemented logic)
 
 const CURVATURE:bool = true;
 //We are assuming that when eviscerators are brought into a circle, the distance between them is maintained - inevitably determining the radius of the curvature
@@ -590,7 +655,7 @@ const MISHAP:bool = true;
 const MISHAP_PROBABILITY:f64 = 0.01;
 const MISHAP_RADIUS:f64 = 10.0; //Must be larger than the range_x of the eviscerate boxes for there to be any change in operation
 //Transfer parameters
-const ages:[f64;4] = [0.01,1.0,1.0,1.0]; //Time hosts are expected spend in each region minimally
+const ages:[f64;2] = [0.01,1.0]; //Time hosts are expected spend in each region minimally
 //Collection
 const AGE_OF_HOSTCOLLECTION: f64 = 20.0*24.0;  //For instance if you were collecting hosts every 15 days
 const COLLECT_DEPOSITS: bool = true;
@@ -1404,16 +1469,18 @@ fn main(){
     let mut deposits_in_collection:[u64;2] = [0,1];
     let mut faecal_collection:[u64;2] = [0,1];
     let mut zones:Vec<Zone_3D> = Vec::new();
-
     //Influx parameter
     let mut influx:bool = INFLUX;
     //Generate eviscerators
     let mut eviscerators:Vec<Eviscerator> = Vec::new();
     if EVISCERATE{
         for index in 0..EVISCERATE_ZONES.len(){
-            for set_no in 0..NO_OF_EVISCERATOR_SETS[index]{
-                for _ in 0..NO_OF_EVISCERATORS[index]{
-                    eviscerators.push(Eviscerator{zone:EVISCERATE_ZONES[index],set:set_no,infected:false,number_of_times_infected:0})
+            for set_no in 0..NO_OF_LINES[index]{
+                for _ in 0..NO_OF_PROBES[index]{
+                    for chronology in 0..NO_OF_EVISCERATORS{
+                        //each struct you are pushing represents a probe
+                        eviscerators.push(Eviscerator{zone:EVISCERATE_ZONES[index],set:set_no,infected:false, chronology:chronology,number_of_times_infected:0})
+                    }
                 }
             }
         }
@@ -1509,15 +1576,24 @@ fn main(){
                 }
             }
         }
+       //Periodically cleaning eviscerators
+       if (time==4 || time==7) && CLEAN_EVISCERATORS{
+        // println!("Cleaning eviscerators!");
+        eviscerators.iter_mut().for_each(|mut ev|{
+            ev.infected = false;
+        })
+    }
+
 
         if EVISCERATE{
             let mut counter:usize = 0;
             for zone in EVISCERATE_ZONES{
                 // println!("Evisceration occurring at zone {}",zone);
-                let no:usize = hosts.clone().into_iter().filter(|x| x.motile == 0).collect::<Vec<_>>().len()/NO_OF_EVISCERATOR_SETS[counter];
-                for set_no in 0..NO_OF_EVISCERATOR_SETS[counter]{
-                    zones[zone].eviscerate(&mut eviscerators,&mut hosts,time.clone(),no,set_no);
-                }
+                let no:usize = hosts.clone().into_iter().filter(|x| x.motile == 0 && x.zone == zone && !x.eviscerated).collect::<Vec<_>>().len()/NO_OF_LINES[counter];
+                // for set_no in 0..NO_OF_LINES[counter]{
+                //     zones[zone].multi_eviscerate(&mut eviscerators,&mut hosts,time.clone(),no,set_no);
+                // }
+                zones[zone].multi_eviscerate(&mut eviscerators,&mut hosts,time.clone(), counter, no,NO_OF_LINES[counter]);
                 counter+=1;
                 // println!("{} hosts have been eviscerated and infected so far",hosts.clone().into_iter().filter(|x| x.eviscerated && x.infected).collect::<Vec<_>>().len() as u64);
             }
@@ -1529,14 +1605,7 @@ fn main(){
             // println!("Total number of hosts is {}: Total number of faeces is {}",  hosts.clone().into_iter().filter(|x| x.motile == 0).collect::<Vec<_>>().len() as u64,hosts.clone().into_iter().filter(|x| x.motile == 2).collect::<Vec<_>>().len() as u64)
         }        
 
-        //Periodically cleaning eviscerators
-        if (time==8 || time==11) && CLEAN_EVISCERATORS{
-            // println!("Cleaning eviscerators!");
-            eviscerators.iter_mut().for_each(|mut ev|{
-                ev.infected = false;
-            })
-        }
-
+ 
 
         let mut FinalZone:&mut Zone_3D = &mut zones[GRIDSIZE.len()-1];
         [hosts,collect] = host::collect__(hosts,&mut FinalZone);
@@ -1708,8 +1777,8 @@ fn main(){
     // Eviscerator configuration
     writeln!(file, "\n## Eviscerator Configuration enabled:{}",EVISCERATE).expect("Failed to write to file");
     writeln!(file, "- Evisceration Zones: {:?}", EVISCERATE_ZONES).expect("Failed to write to file");   
-    writeln!(file, "- NUMBER OF EVISCERATORS PROBES: {:?}", NO_OF_EVISCERATORS).expect("Failed to write to file");   
-    writeln!(file, "- NUMBER OF EVISCERATOR MACHINES (each containing said amount of probes above): {:?}", NO_OF_EVISCERATOR_SETS).expect("Failed to write to file");   
+    writeln!(file, "- NUMBER OF EVISCERATORS PROBES: {:?}", NO_OF_PROBES).expect("Failed to write to file");   
+    writeln!(file, "- NUMBER OF EVISCERATOR MACHINES (each containing said amount of probes above): {:?}", NO_OF_EVISCERATORS).expect("Failed to write to file");   
     writeln!(file, "- EVISCERATOR DECAY: {} (Number of hosts an eviscerator has to go through before the infection is gone)", EVISCERATE_DECAY).expect("Failed to write to file");        
     writeln!(file, "- MISHAP: {} (Can hosts explode by accident during evisceration??)", MISHAP).expect("Failed to write to file");        
     writeln!(file, "- MISHAP_PROBABILITY: {} (At what probability does this accident happen??)", MISHAP_PROBABILITY).expect("Failed to write to file");        
