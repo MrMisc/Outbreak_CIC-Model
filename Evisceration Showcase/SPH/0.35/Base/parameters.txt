@@ -1,0 +1,59 @@
+## Space
+- RESTRICTION: true (Are the hosts restricted to segments within each zone)
+- INFECTION PROBABILITIES PER ZONE: [0.9, 0.9, 0.9, 0.9] (Probability of transfer of salmonella per zone)
+- CONTACT TRANSMISSION PROBABILITIES PER ZONE: [0.35, 0.35, 0.35, 0.35] (Probability of transfer of salmonella per zone)
+- GRIDSIZE: [[240.0, 400.0, 28.0], [28000.0, 2.0, 2.0], [28000.0, 2.0, 2.0], [28000.0, 2.0, 2.0]] (Size of the grid)
+- MAX_MOVE: 10 (Maximum move value)
+- MEAN_MOVE: 4 (Mean move value)
+- STD_MOVE: 3 (Standard deviation of move value)
+- MAX_MOVE_Z: 1 (Maximum move for vertical motion)
+- MEAN_MOVE_Z: 2 (Mean move value for vertical motion)
+- STD_MOVE_Z: 4 (Standard deviation of move value for vertical motion)
+- FAECAL DROP: false (Does faeces potentially fall between segments downwards?)
+- PROBABILITY OF FAECAL DROP: 0.3 (If yes, what is the probability? -> Poisson hourly rate)
+- TRANSMISSION BETWEEN ZONES disabled: [true, false, false, false] (Can diseases transfer between segments/cages within each zone?)
+
+## Flight module
+- FLY: false (Flight module enabled/disabled)
+
+## Perching module
+- PERCH: false (Do the hosts perch?)
+
+## Eviscerator Configuration enabled:true
+- Evisceration Zones: [1, 2, 3]
+- NUMBER OF EVISCERATORS PROBES: [28, 28, 28]
+- NUMBER OF EVISCERATOR MACHINES (each containing said amount of probes above): [1, 1, 1]
+- EVISCERATOR DECAY: 5 (Number of hosts an eviscerator has to go through before the infection is gone)
+- MISHAP: true (Can hosts explode by accident during evisceration??)
+- MISHAP_PROBABILITY: 0.01 (At what probability does this accident happen??)
+- MISHAP_RADIUS: 10 (At what radius does this explosion occur - (currently fixed radius)??)
+
+## Transfer Configuration
+- Times Manual Map: [0.01, 1.0, 1.0, 1.0] (Times that hosts have to spend in each zone)
+- Influx?: false (Did the simulation bring in hosts to process?)
+- If yes, they were brought in every 2 hours
+- Period of transport rules : 1 hours (How many hours until we check to see if hosts need to be moved from zone to zone)
+
+## Disease
+- TRANSFER_DISTANCE: 1 (Maximum distance for disease transmission)
+
+## Collection
+- AGE_OF_HOSTCOLLECTION: 20 days
+- AGE_OF_DEPOSITCOLLECTION: 1 days
+- FAECAL_CLEANUP_FREQUENCY: 12 times per day
+
+## Resolution
+- STEP: [[4, 4, 4], [2, 2, 2], [2, 2, 2], [2, 2, 2]] (hosts per unit distance)
+- HOUR_STEP: 4 (hosts move per hour)
+- LENGTH: 20 (Simulation duration in hours)
+
+## Generation
+- SPORADICITY: 1000 ( Bigger number makes the spread of hosts starting point more even per seg)
+
+##Contamination Pathway Toolbox options
+HOSTTOHOST_CONTACT_SPREAD: false ( Whether contamination can spread from mobile host to mobile host)
+HOSTTOEGG_CONTACT_SPREAD: true ( Whether contamination can spread from mobile host to edible/consumable deposit from host)
+HOSTTOFAECES_CONTACT_SPREAD: false ( Whether contamination can spread from mobile host to inedible/non-consumable deposit from host - i.e. faecal matter)
+EGGTOFAECES_CONTACT_SPREAD: true ( Whether contamination can spread from edible/consumable deposit from host to inedible/non-consumable deposit from host)
+FAECESTOEGG_CONTACT_SPREAD: true ( Whether contamination can spread from inedible/non-consumable deposit from host to edible/consumable deposit from host)
+FAECESTOHOST_CONTACT_SPREAD: true ( Whether contamination can spread from inedible/non-consumable deposit from host to mobile host)

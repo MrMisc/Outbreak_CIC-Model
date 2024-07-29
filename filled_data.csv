@@ -1,0 +1,97 @@
+"","groups","dates","zone","values"
+"1","Egg -> Faeces",0,-1,0
+"2","Egg -> Faeces",1,-1,0
+"3","Egg -> Faeces",2,-1,0
+"4","Egg -> Faeces",3,-1,0
+"5","Egg -> Faeces",4,-1,0
+"6","Egg -> Faeces",5,-1,0
+"7","Egg -> Faeces",6,-1,0
+"8","Egg -> Faeces",7,-1,0
+"9","Egg -> Faeces",8,-1,0
+"10","Egg -> Faeces",9,-1,0
+"11","Egg -> Faeces",10,-1,0
+"12","Egg -> Faeces",11,0,1
+"13","Faeces -> Host",0,-1,0
+"14","Faeces -> Host",1,0,5
+"15","Faeces -> Host",2,0,3
+"16","Faeces -> Host",3,0,1
+"17","Faeces -> Host",4,0,1
+"18","Faeces -> Host",5,0,1
+"19","Faeces -> Host",6,0,3
+"20","Faeces -> Host",7,-1,0
+"21","Faeces -> Host",8,0,1
+"22","Faeces -> Host",9,0,1
+"23","Faeces -> Host",10,-1,0
+"24","Faeces -> Host",11,0,1
+"25","Faeces -> Host[*]",0,-1,0
+"26","Faeces -> Host[*]",1,0,3
+"27","Faeces -> Host[*]",2,0,1
+"28","Faeces -> Host[*]",3,-1,0
+"29","Faeces -> Host[*]",4,0,2
+"30","Faeces -> Host[*]",5,0,3
+"31","Faeces -> Host[*]",6,0,2
+"32","Faeces -> Host[*]",7,-1,0
+"33","Faeces -> Host[*]",8,0,3
+"34","Faeces -> Host[*]",9,0,2
+"35","Faeces -> Host[*]",10,0,1
+"36","Faeces -> Host[*]",11,0,1
+"37","Faeces <-> Faeces",0,-1,0
+"38","Faeces <-> Faeces",1,-1,0
+"39","Faeces <-> Faeces",2,-1,0
+"40","Faeces <-> Faeces",3,-1,0
+"41","Faeces <-> Faeces",4,-1,0
+"42","Faeces <-> Faeces",5,-1,0
+"43","Faeces <-> Faeces",6,-1,0
+"44","Faeces <-> Faeces",7,-1,0
+"45","Faeces <-> Faeces",8,-1,0
+"46","Faeces <-> Faeces",9,-1,0
+"47","Faeces <-> Faeces",10,0,1
+"48","Faeces <-> Faeces",11,-1,0
+"49","Host -> Egg",0,-1,0
+"50","Host -> Egg",1,-1,0
+"51","Host -> Egg",2,0,1
+"52","Host -> Egg",3,0,1
+"53","Host -> Egg",4,-1,0
+"54","Host -> Egg",5,0,3
+"55","Host -> Egg",6,-1,0
+"56","Host -> Egg",7,0,3
+"57","Host -> Egg",8,0,1
+"58","Host -> Egg",9,0,7
+"59","Host -> Egg",10,0,5
+"60","Host -> Egg",11,0,10
+"61","Host 0[*]",0,0,10
+"62","Host 0[*]",1,-1,0
+"63","Host 0[*]",2,-1,0
+"64","Host 0[*]",3,-1,0
+"65","Host 0[*]",4,-1,0
+"66","Host 0[*]",5,-1,0
+"67","Host 0[*]",6,-1,0
+"68","Host 0[*]",7,-1,0
+"69","Host 0[*]",8,-1,0
+"70","Host 0[*]",9,-1,0
+"71","Host 0[*]",10,-1,0
+"72","Host 0[*]",11,-1,0
+"73","Host <-> Host",0,-1,0
+"74","Host <-> Host",1,-1,0
+"75","Host <-> Host",2,0,3
+"76","Host <-> Host",3,0,5
+"77","Host <-> Host",4,0,6
+"78","Host <-> Host",5,0,13
+"79","Host <-> Host",6,0,8
+"80","Host <-> Host",7,0,5
+"81","Host <-> Host",8,0,9
+"82","Host <-> Host",9,0,19
+"83","Host <-> Host",10,0,13
+"84","Host <-> Host",11,0,18
+"85","marker",0,0,1
+"86","marker",1,-1,0
+"87","marker",2,-1,0
+"88","marker",3,-1,0
+"89","marker",4,-1,0
+"90","marker",5,-1,0
+"91","marker",6,-1,0
+"92","marker",7,-1,0
+"93","marker",8,-1,0
+"94","marker",9,-1,0
+"95","marker",10,-1,0
+"96","marker",11,-1,0
