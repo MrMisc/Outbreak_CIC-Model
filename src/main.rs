@@ -723,7 +723,7 @@ const FAECESTOEGG_CONTACT_SPREAD: bool = true;
 // const INITIAL_COLONIZATION_RATE:f64 = 0.47; //Probability of infection, resulting in colonization -> DAILY RATE ie PER DAY
 //Space
 const LISTOFPROBABILITIES: [f64; 2] = [0.9; 2]; //Probability of transfer of disease per zone - starting from zone 0 onwards
-const CONTACT_TRANSMISSION_PROBABILITY: [f64; 2] = [0.07; 2];
+const CONTACT_TRANSMISSION_PROBABILITY: [f64; 2] = [0.205; 2];
 const GRIDSIZE: [[f64; 3]; 2] = [[4.0 * TOTAL_NO_OF_HOSTS, 4.0, 4.0], [28000.0, 2.0, 2.0]];
 const MAX_MOVE: f64 = 10.0;
 const MEAN_MOVE: f64 = 4.0;
@@ -796,8 +796,8 @@ const PI: f64 = std::f64::consts::PI;
 const ANGLE_MAXIMA: f64 = 0.25 * PI; //Maximum angular displacement, above which, mishaps cannot travel anyway
                                      //Evisceration -------------> Mishap/Explosion parameters
 const MISHAP: bool = true;
-const MISHAP_PROBABILITY: f64 = 0.05;
-const MISHAP_TRANSFER_PROBABILITY: f64 = 0.2;
+const MISHAP_PROBABILITY: f64 = 0.1338;
+const MISHAP_TRANSFER_PROBABILITY: f64 = 0.4;
 const MISHAP_RADIUS: f64 = 2.0; //Must be larger than the range_x of the eviscerate boxes for there to be any change in operation
                                 //Transfer parameters
 const ages: [f64; 2] = [0.01, 1.0]; //Time hosts are expected spend in each region minimally
